@@ -9,6 +9,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.config import get_config
 from app.database import Base
+from app.auth.models import User  # noqa: F401 — импорт всех моделей для регистрации в metadata
 
 config = context.config
 

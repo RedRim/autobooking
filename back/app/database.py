@@ -2,7 +2,8 @@
 настройка подключения к базе данных
 """
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import Integer
 
 from app.config import get_config
 
@@ -16,6 +17,8 @@ class Base(DeclarativeBase):
     """
     базовый класс для всех моделей
     """
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
 
 async def get_session():
