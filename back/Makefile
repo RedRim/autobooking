@@ -3,6 +3,9 @@
 up:
 	docker-compose up -d
 
+build:
+	docker-compose build --pull --no-cache
+
 down:
 	docker-compose down
 
