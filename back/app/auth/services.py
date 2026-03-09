@@ -11,6 +11,7 @@ from app.auth.models import User
 from app.auth.schemas import RegisterSchema
 from app.config import get_config
 from app.database import get_session
+from app.auth.models import UserRole
 
 bearer_scheme = HTTPBearer()
 
@@ -35,10 +36,13 @@ async def register_user(data: RegisterSchema, session: AsyncSession) -> User:
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email уже занят")
 
+
+    role = UserRole.company if data.company_name else UserRole.user
     user = User(
         email=data.email,
         hashed_password=hash_password(data.password),
         company_name=data.company_name,
+        role=role,
     )
     session.add(user)
     await session.commit()
