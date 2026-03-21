@@ -2,13 +2,13 @@
   <div class="register-page">
     <div class="container">
       <div class="progress">
-        <div class="progress-bar" :style="{ width: '50%' }"></div>
+        <div class="progress-bar" :style="{ width: '100%' }"></div>
       </div>
       
       <h1>Регистрация компании</h1>
-      <div class="subtitle">Шаг 1 из 2 — Создание аккаунта</div>
+      <div class="subtitle">Создайте аккаунт владельца бизнеса</div>
 
-      <form @submit.prevent="handleStep1">
+      <form @submit.prevent="handleRegister">
         <div class="form-group">
           <input 
             v-model="form.companyName" 
@@ -54,7 +54,7 @@
         </div>
 
         <button type="submit" :disabled="loading">
-          {{ loading ? 'Обработка...' : 'Продолжить' }}
+          {{ loading ? 'Регистрация...' : 'Зарегистрировать компанию' }}
         </button>
       </form>
 
@@ -62,8 +62,16 @@
         {{ serverError }}
       </div>
 
+      <div v-if="serverSuccess" class="success-message">
+        Регистрация успешна! Перенаправляем...
+      </div>
+
       <div class="footer-link">
         Уже есть аккаунт? <router-link to="/login/company">Войти</router-link>
+      </div>
+
+      <div class="footer-link">
+        <router-link to="/">← На главную</router-link>
       </div>
     </div>
   </div>
@@ -72,11 +80,14 @@
 <script setup>
 import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuth } from '@/composables/useAuth';
 
 const router = useRouter();
+const { register } = useAuth();
 
 const loading = ref(false);
 const serverError = ref('');
+const serverSuccess = ref(false);
 const errors = reactive({ companyName: '', email: '', password: '', confirmPassword: '' });
 
 const form = reactive({
@@ -122,19 +133,34 @@ const validateForm = () => {
   return isValid;
 };
 
-const handleStep1 = () => {
+const handleRegister = async () => {
+  serverError.value = '';
+  serverSuccess.value = false;
+  
   if (!validateForm()) return;
 
   loading.value = true;
 
-  // Сохраняем данные в sessionStorage для шага 2
-  sessionStorage.setItem('companyRegisterData', JSON.stringify(form));
-
-  // Переход на шаг 2
-  setTimeout(() => {
+  try {
+    // Вызываем API регистрации с company_name
+    const response = await register(form.email, form.password, form.companyName);
+    
+    // Сохраняем токен и роль
+    localStorage.setItem('access_token', response.access_token);
+    localStorage.setItem('user_role', 'company');
+    
+    serverSuccess.value = true;
+    
+    // Перенаправляем в панель компании после небольшой задержки
+    setTimeout(() => {
+      router.push('/dashboard/company');
+    }, 1500);
+    
+  } catch (error) {
+    serverError.value = error.message || 'Ошибка регистрации. Попробуйте другой email.';
+  } finally {
     loading.value = false;
-    router.push('/register/company/step2');
-  }, 500);
+  }
 };
 </script>
 
@@ -238,6 +264,16 @@ button:disabled {
 .server-error {
   background: #fef2f2;
   color: #dc2626;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.success-message {
+  background: #dcfce7;
+  color: #166534;
   padding: 10px;
   border-radius: 8px;
   margin-bottom: 15px;

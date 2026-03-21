@@ -37,7 +37,7 @@
       </div>
 
       <div class="footer-link">
-        Нет аккаунта? <router-link to="/register/company">Зарегистрировать компанию</router-link>
+        Нет аккаунта? <router-link to="/register/company/step1">Зарегистрировать компанию</router-link>
       </div>
 
       <div class="footer-link">
