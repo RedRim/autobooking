@@ -1,0 +1,591 @@
+--
+-- PostgreSQL database dump
+--
+
+\restrict ktaDYxMbfgIHTsMXgJQ0DavR1rWhbuwPtsNAVnatCLIOecSVjcXbAycQECA9zU8
+
+-- Dumped from database version 15.15 (Debian 15.15-1.pgdg13+1)
+-- Dumped by pg_dump version 15.15 (Debian 15.15-1.pgdg13+1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: bookingstatus; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.bookingstatus AS ENUM (
+    'pending',
+    'confirmed',
+    'cancelled'
+);
+
+
+ALTER TYPE public.bookingstatus OWNER TO postgres;
+
+--
+-- Name: userrole; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.userrole AS ENUM (
+    'user',
+    'company',
+    'admin'
+);
+
+
+ALTER TYPE public.userrole OWNER TO postgres;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: alembic_version; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.alembic_version (
+    version_num character varying(32) NOT NULL
+);
+
+
+ALTER TABLE public.alembic_version OWNER TO postgres;
+
+--
+-- Name: bookings; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.bookings (
+    user_id integer NOT NULL,
+    service_id integer NOT NULL,
+    company_id integer NOT NULL,
+    start_at timestamp with time zone NOT NULL,
+    end_at timestamp with time zone NOT NULL,
+    status public.bookingstatus NOT NULL,
+    notes text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    id integer NOT NULL
+);
+
+
+ALTER TABLE public.bookings OWNER TO postgres;
+
+--
+-- Name: bookings_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.bookings_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.bookings_id_seq OWNER TO postgres;
+
+--
+-- Name: bookings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.bookings_id_seq OWNED BY public.bookings.id;
+
+
+--
+-- Name: companies; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.companies (
+    owner_id integer NOT NULL,
+    name character varying(255) NOT NULL,
+    description text,
+    category character varying(100),
+    city character varying(100),
+    address character varying(500),
+    phone character varying(50),
+    is_active boolean NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    id integer NOT NULL
+);
+
+
+ALTER TABLE public.companies OWNER TO postgres;
+
+--
+-- Name: companies_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.companies_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.companies_id_seq OWNER TO postgres;
+
+--
+-- Name: companies_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.companies_id_seq OWNED BY public.companies.id;
+
+
+--
+-- Name: services; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.services (
+    company_id integer NOT NULL,
+    name character varying(255) NOT NULL,
+    description text,
+    price numeric(10,2),
+    duration_minutes integer NOT NULL,
+    is_active boolean NOT NULL,
+    id integer NOT NULL
+);
+
+
+ALTER TABLE public.services OWNER TO postgres;
+
+--
+-- Name: services_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.services_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.services_id_seq OWNER TO postgres;
+
+--
+-- Name: services_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.services_id_seq OWNED BY public.services.id;
+
+
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.users (
+    email character varying(255) NOT NULL,
+    hashed_password character varying(255) NOT NULL,
+    role public.userrole NOT NULL,
+    company_name character varying(255),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    id integer NOT NULL
+);
+
+
+ALTER TABLE public.users OWNER TO postgres;
+
+--
+-- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.users_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.users_id_seq OWNER TO postgres;
+
+--
+-- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
+
+
+--
+-- Name: working_hours; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.working_hours (
+    company_id integer NOT NULL,
+    day_of_week integer NOT NULL,
+    start_time time without time zone NOT NULL,
+    end_time time without time zone NOT NULL,
+    is_working boolean NOT NULL,
+    id integer NOT NULL
+);
+
+
+ALTER TABLE public.working_hours OWNER TO postgres;
+
+--
+-- Name: working_hours_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.working_hours_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.working_hours_id_seq OWNER TO postgres;
+
+--
+-- Name: working_hours_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.working_hours_id_seq OWNED BY public.working_hours.id;
+
+
+--
+-- Name: bookings id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.bookings ALTER COLUMN id SET DEFAULT nextval('public.bookings_id_seq'::regclass);
+
+
+--
+-- Name: companies id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.companies ALTER COLUMN id SET DEFAULT nextval('public.companies_id_seq'::regclass);
+
+
+--
+-- Name: services id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.services ALTER COLUMN id SET DEFAULT nextval('public.services_id_seq'::regclass);
+
+
+--
+-- Name: users id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
+
+
+--
+-- Name: working_hours id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.working_hours ALTER COLUMN id SET DEFAULT nextval('public.working_hours_id_seq'::regclass);
+
+
+--
+-- Data for Name: alembic_version; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.alembic_version (version_num) FROM stdin;
+d4765d5c056d
+\.
+
+
+--
+-- Data for Name: bookings; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.bookings (user_id, service_id, company_id, start_at, end_at, status, notes, created_at, id) FROM stdin;
+7	1	1	2026-03-10 13:00:00+00	2026-03-10 13:45:00+00	confirmed	Хочу покороче на висках	2026-03-09 11:55:47.05307+00	1
+7	4	2	2026-03-12 15:00:00+00	2026-03-12 16:30:00+00	pending	\N	2026-03-09 11:55:47.05307+00	2
+8	2	1	2026-03-07 10:00:00+00	2026-03-07 10:30:00+00	cancelled	Передумал	2026-03-09 11:55:47.05307+00	3
+\.
+
+
+--
+-- Data for Name: companies; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.companies (owner_id, name, description, category, city, address, phone, is_active, created_at, id) FROM stdin;
+5	Барбершоп «Непробиваемые чурки»	Мужские стрижки и уход за бородой. Только опытные мастера.	Барбершоп	Москва	ул. Арбат, 10	+7 999 100-00-01	t	2026-03-09 11:55:47.05307+00	1
+6	Студия маникюра «Nail Art»	Маникюр, педикюр, наращивание ногтей. Работаем без выходных.	Маникюр	Санкт-Петербург	Невский пр., 55	+7 999 200-00-02	t	2026-03-09 11:55:47.05307+00	2
+\.
+
+
+--
+-- Data for Name: services; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.services (company_id, name, description, price, duration_minutes, is_active, id) FROM stdin;
+1	Мужская стрижка	Стрижка машинкой или ножницами с укладкой	1200.00	45	t	1
+1	Оформление бороды	Коррекция формы, бритьё опасной бритвой, уходовые масла	800.00	30	t	2
+1	Комплекс (стрижка + борода)	Стрижка и оформление бороды со скидкой	1800.00	75	t	3
+2	Маникюр с покрытием	Аппаратный маникюр + гель-лак на выбор	2500.00	90	t	4
+2	Педикюр	Классический педикюр с покрытием	2800.00	120	t	5
+2	Наращивание ногтей	Наращивание на формах или типсах, любая длина	3500.00	150	t	6
+\.
+
+
+--
+-- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.users (email, hashed_password, role, company_name, created_at, id) FROM stdin;
+user@example.com	$2b$12$4DMVpUNlXNH3HVNI.f2CyuJEvsVJcuz93Eycj/hI5GXK3H/rWJYHi	user	string	2026-03-02 12:37:02.876642+00	1
+s@m.ru	$2b$12$duiFXqjsNf55bB0RGAChrO/mCPlJQ4Unop2NQXCn8ezb3N2aiR8x2	user	\N	2026-03-02 12:37:32.222162+00	2
+user@ыва.com	$2b$12$y9ZU8aTrJ6MVSbktz3isQuOjyl./mEUi.z3fY.GD7omZ.oZwZLi5a	company	string	2026-03-09 11:53:25.36352+00	3
+admin@example.com	$2b$12$k9M0Y49V.FFOdZKE5mTDMuGAu5sHSw1GPgKjVWy3SJMG6Q3EN.q1y	admin	\N	2026-03-09 11:55:47.05307+00	4
+owner1@example.com	$2b$12$vWAQjrauqyjCD55jqRcgW.D5ZhsP8DO.iceENx/LoCaybEnCIg9fS	company	Барбершоп «Топор»	2026-03-09 11:55:47.05307+00	5
+owner2@example.com	$2b$12$SmMJDTN.VrchdlhkIKNdLeOyCyM0pK.yivG.GGJuNe/5PEOgg5Lhu	company	Студия маникюра «Nail Art»	2026-03-09 11:55:47.05307+00	6
+user1@example.com	$2b$12$R8cz7WqptoYdW59O9UkAZeqZb27CzqUeFU4JT72GY517wFiFNkGEO	user	\N	2026-03-09 11:55:47.05307+00	7
+user2@example.com	$2b$12$D21lFteLElAcgtrLeoFqqejeXbX3FD6Tr78rACoJmugW6cIHTBD0m	user	\N	2026-03-09 11:55:47.05307+00	8
+\.
+
+
+--
+-- Data for Name: working_hours; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.working_hours (company_id, day_of_week, start_time, end_time, is_working, id) FROM stdin;
+1	0	09:00:00	20:00:00	t	1
+1	1	09:00:00	20:00:00	t	2
+1	2	09:00:00	20:00:00	t	3
+1	3	09:00:00	20:00:00	t	4
+1	4	09:00:00	20:00:00	t	5
+1	5	10:00:00	18:00:00	t	6
+1	6	00:00:00	00:00:00	f	7
+2	0	10:00:00	21:00:00	t	8
+2	1	10:00:00	21:00:00	t	9
+2	2	10:00:00	21:00:00	t	10
+2	3	10:00:00	21:00:00	t	11
+2	4	10:00:00	21:00:00	t	12
+2	5	10:00:00	21:00:00	t	13
+2	6	10:00:00	21:00:00	t	14
+\.
+
+
+--
+-- Name: bookings_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.bookings_id_seq', 3, true);
+
+
+--
+-- Name: companies_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.companies_id_seq', 2, true);
+
+
+--
+-- Name: services_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.services_id_seq', 6, true);
+
+
+--
+-- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.users_id_seq', 8, true);
+
+
+--
+-- Name: working_hours_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.working_hours_id_seq', 14, true);
+
+
+--
+-- Name: alembic_version alembic_version_pkc; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.alembic_version
+    ADD CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num);
+
+
+--
+-- Name: bookings bookings_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.bookings
+    ADD CONSTRAINT bookings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: companies companies_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.companies
+    ADD CONSTRAINT companies_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: services services_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.services
+    ADD CONSTRAINT services_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: working_hours uq_company_day; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.working_hours
+    ADD CONSTRAINT uq_company_day UNIQUE (company_id, day_of_week);
+
+
+--
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: working_hours working_hours_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.working_hours
+    ADD CONSTRAINT working_hours_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ix_bookings_company_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX ix_bookings_company_id ON public.bookings USING btree (company_id);
+
+
+--
+-- Name: ix_bookings_service_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX ix_bookings_service_id ON public.bookings USING btree (service_id);
+
+
+--
+-- Name: ix_bookings_user_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX ix_bookings_user_id ON public.bookings USING btree (user_id);
+
+
+--
+-- Name: ix_companies_category; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX ix_companies_category ON public.companies USING btree (category);
+
+
+--
+-- Name: ix_companies_city; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX ix_companies_city ON public.companies USING btree (city);
+
+
+--
+-- Name: ix_companies_name; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX ix_companies_name ON public.companies USING btree (name);
+
+
+--
+-- Name: ix_companies_owner_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX ix_companies_owner_id ON public.companies USING btree (owner_id);
+
+
+--
+-- Name: ix_services_company_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX ix_services_company_id ON public.services USING btree (company_id);
+
+
+--
+-- Name: ix_users_email; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX ix_users_email ON public.users USING btree (email);
+
+
+--
+-- Name: ix_working_hours_company_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX ix_working_hours_company_id ON public.working_hours USING btree (company_id);
+
+
+--
+-- Name: bookings bookings_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.bookings
+    ADD CONSTRAINT bookings_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bookings bookings_service_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.bookings
+    ADD CONSTRAINT bookings_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bookings bookings_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.bookings
+    ADD CONSTRAINT bookings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: companies companies_owner_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.companies
+    ADD CONSTRAINT companies_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: services services_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.services
+    ADD CONSTRAINT services_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+
+
+--
+-- Name: working_hours working_hours_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.working_hours
+    ADD CONSTRAINT working_hours_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+\unrestrict ktaDYxMbfgIHTsMXgJQ0DavR1rWhbuwPtsNAVnatCLIOecSVjcXbAycQECA9zU8
+

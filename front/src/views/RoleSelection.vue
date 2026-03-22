@@ -11,14 +11,14 @@
         <div class="role-card" @click="selectRole('client')">
           <h2>Я клиент</h2>
           <p>Хочу записаться на услугу: салон, барбершоп, массаж, авто-сервис и многое другое</p>
-          <button class="buy-btn">Найти услуги</button>
+          <button class="buy-btn" @click.stop="navigateTo('/login/user')">Найти услуги</button>
         </div>
 
         <!-- Карточка Владельца -->
         <div class="role-card" @click="selectRole('business')">
           <h2>Я владелец бизнеса</h2>
           <p>Хочу добавить свою компанию и принимать онлайн-записи клиентов</p>
-          <button class="sell-btn">Добавить компанию</button>
+          <button class="sell-btn" @click.stop="navigateTo('/login/company')">Добавить компанию</button>
         </div>
       </div>
 
@@ -37,10 +37,13 @@ const router = useRouter();
 const selectRole = (role) => {
   console.log(`Выбрана роль: ${role}`);
 };
+
+const navigateTo = (path) => {
+  router.push(path);
+};
 </script>
 
 <style scoped>
-
 .role-page {
   font-family: "Segoe UI", Arial, sans-serif;
   background: linear-gradient(135deg, #1e3a8a, #2563eb);
@@ -54,7 +57,7 @@ const selectRole = (role) => {
 .container {
   background: white;
   width: 900px;
-  max-width: 95%; 
+  max-width: 95%;
   padding: 50px;
   border-radius: 20px;
   box-shadow: 0 20px 40px rgba(0,0,0,0.2);
@@ -82,7 +85,7 @@ h1 {
 
 .role-card {
   flex: 1;
-  min-width: 280px; 
+  min-width: 280px;
   padding: 40px 30px;
   border-radius: 15px;
   border: 2px solid #e5e7eb;
@@ -107,7 +110,7 @@ h1 {
 .role-card p {
   color: #6b7280;
   margin-bottom: 25px;
-  flex-grow: 1; 
+  flex-grow: 1;
 }
 
 button {
