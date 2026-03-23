@@ -51,13 +51,20 @@ async def client(test_session, test_engine):
 # Хелперы
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def register_user(client: AsyncClient, email: str, password: str, company_name: str | None = None):
+async def register_user(
+    client: AsyncClient, 
+    email: str, 
+    password: str, 
+    is_company: bool = False  # ← Переименовали для ясности
+):
     """Регистрирует пользователя и возвращает токен"""
     payload = {"email": email, "password": password}
-    if company_name:
-        payload["company_name"] = company_name
-    response = await client.post("/auth/register", json=payload)
-    assert response.status_code == 201
+    
+
+    endpoint = "/auth/register/company" if is_company else "/auth/register"
+    
+    response = await client.post(endpoint, json=payload)
+    assert response.status_code == 201, f"Registration failed: {response.text}"
     return response.json()["access_token"]
 
 async def login_user(client: AsyncClient, email: str, password: str):
@@ -88,10 +95,9 @@ class TestAuth:
 
     async def test_register_company(self, client: AsyncClient):
         """Регистрация владельца компании"""
-        response = await client.post("/auth/register", json={
+        response = await client.post("/auth/register/company", json={
             "email": "test_owner@example.com",
-            "password": "password123",
-            "company_name": "Тестовая Компания"
+            "password": "password123"
         })
         assert response.status_code == 201
         data = response.json()
@@ -136,7 +142,7 @@ class TestAuth:
 
     async def test_get_me(self, client: AsyncClient):
         """Получение данных текущего пользователя"""
-        token = await register_user(client, "me_test@example.com", "password123")
+        token = await register_user(client, "me_test@example.com", "password123", is_company=False)
         response = await client.get("/auth/me", headers=auth_headers(token))
         assert response.status_code == 200
         data = response.json()
@@ -162,14 +168,14 @@ class TestCompanies:
 
     async def test_list_companies_with_data(self, client: AsyncClient):
         """Список компаний с данными"""
-        token = await register_user(client, "owner1@example.com", "password123", "Компания 1")
+        token = await register_user(client, "owner1@example.com", "password123", is_company=True)
         await client.post("/owner/company", headers=auth_headers(token), json={
             "name": "Компания 1",
             "category": "Барбершоп",
             "city": "Москва"
         })
         
-        token2 = await register_user(client, "owner2@example.com", "password123", "Компания 2")
+        token2 = await register_user(client, "owner2@example.com", "password123", is_company=True)
         await client.post("/owner/company", headers=auth_headers(token2), json={
             "name": "Компания 2",
             "category": "Салон красоты",
@@ -182,13 +188,13 @@ class TestCompanies:
 
     async def test_filter_companies_by_city(self, client: AsyncClient):
         """Фильтр компаний по городу"""
-        token = await register_user(client, "owner_filter@example.com", "password123", "Фильтр Компания")
+        token = await register_user(client, "owner_filter@example.com", "password123",is_company=True)
         await client.post("/owner/company", headers=auth_headers(token), json={
             "name": "Московская Компания",
             "city": "Москва"
         })
         
-        token2 = await register_user(client, "owner_filter2@example.com", "password123", "Фильтр Компания 2")
+        token2 = await register_user(client, "owner_filter2@example.com", "password123", is_company=True)
         await client.post("/owner/company", headers=auth_headers(token2), json={
             "name": "Питерская Компания",
             "city": "Санкт-Петербург"
@@ -201,7 +207,7 @@ class TestCompanies:
 
     async def test_get_company_details(self, client: AsyncClient):
         """Детали компании"""
-        token = await register_user(client, "owner_detail@example.com", "password123", "Детали Компания")
+        token = await register_user(client, "owner_detail@example.com", "password123", is_company=True)
         create_resp = await client.post("/owner/company", headers=auth_headers(token), json={
             "name": "Детали Компания",
             "description": "Описание",
@@ -221,7 +227,7 @@ class TestCompanies:
 
     async def test_create_company(self, client: AsyncClient):
         """Создание компании владельцем"""
-        token = await register_user(client, "create_owner@example.com", "password123", "Создать Компания")
+        token = await register_user(client, "create_owner@example.com", "password123", is_company=True)
         response = await client.post("/owner/company", headers=auth_headers(token), json={
             "name": "Новая Компания",
             "category": "Салон красоты",
@@ -236,7 +242,7 @@ class TestCompanies:
 
     async def test_create_company_user_role(self, client: AsyncClient):
         """Попытка создания компании обычным пользователем"""
-        token = await register_user(client, "regular_user@example.com", "password123")
+        token = await register_user(client, "regular_user@example.com", "password123", is_company=False)
         response = await client.post("/owner/company", headers=auth_headers(token), json={
             "name": "Нельзя Создать",
             "city": "Москва"
@@ -245,7 +251,7 @@ class TestCompanies:
 
     async def test_get_my_company(self, client: AsyncClient):
         """Получение своей компании"""
-        token = await register_user(client, "my_company_owner@example.com", "password123", "Моя Компания")
+        token = await register_user(client, "my_company_owner@example.com", "password123", is_company=True)
         await client.post("/owner/company", headers=auth_headers(token), json={
             "name": "Моя Компания",
             "city": "Москва"
@@ -257,7 +263,7 @@ class TestCompanies:
 
     async def test_update_company(self, client: AsyncClient):
         """Обновление компании"""
-        token = await register_user(client, "update_owner@example.com", "password123", "Обновить Компания")
+        token = await register_user(client, "update_owner@example.com", "password123", is_company=True)
         create_resp = await client.post("/owner/company", headers=auth_headers(token), json={
             "name": "Старое Название",
             "city": "Москва"
@@ -280,7 +286,7 @@ class TestServices:
     @pytest_asyncio.fixture
     async def company_with_owner(self, client: AsyncClient):
         """Создаёт владельца и компанию"""
-        token = await register_user(client, "service_owner@example.com", "password123", "Сервис Компания")
+        token = await register_user(client, "service_owner@example.com", "password123", is_company=True)
         create_resp = await client.post("/owner/company", headers=auth_headers(token), json={
             "name": "Сервис Компания",
             "city": "Москва"
@@ -365,7 +371,7 @@ class TestWorkingHours:
     @pytest_asyncio.fixture
     async def company_with_owner(self, client: AsyncClient):
         """Создаёт владельца и компанию"""
-        token = await register_user(client, "schedule_owner@example.com", "password123", "Расписание Компания")
+        token = await register_user(client, "schedule_owner@example.com", "password123", is_company=True)
         create_resp = await client.post("/owner/company", headers=auth_headers(token), json={
             "name": "Расписание Компания",
             "city": "Москва"
@@ -447,7 +453,7 @@ class TestBookings:
     async def full_setup(self, client: AsyncClient):
         """Полная настройка: владелец, компания, услуга, расписание, клиент"""
         # Владелец
-        owner_token = await register_user(client, "booking_owner@example.com", "password123", "Booking Компания")
+        owner_token = await register_user(client, "booking_owner@example.com", "password123", is_company=True)
         company_resp = await client.post("/owner/company", headers=auth_headers(owner_token), json={
             "name": "Booking Компания",
             "city": "Москва"
@@ -471,7 +477,7 @@ class TestBookings:
         )
         
         # Клиент
-        client_token = await register_user(client, "booking_client@example.com", "password123")
+        client_token = await register_user(client, "booking_client@example.com", "password123", is_company=False)
         
         return {
             "owner_token": owner_token,
@@ -727,7 +733,7 @@ class TestBookings:
         booking_id = create_resp.json()["id"]
         
         # Другой клиент пытается отменить
-        other_token = await register_user(client, "other_client@example.com", "password123")
+        other_token = await register_user(client, "other_client@example.com", "password123", is_company=False)
         response = await client.post(
             f"/bookings/{booking_id}/cancel",
             headers=auth_headers(other_token)
@@ -742,13 +748,13 @@ class TestPermissions:
     @pytest_asyncio.fixture
     async def two_companies(self, client: AsyncClient):
         """Создаёт двух владельцев с компаниями"""
-        token1 = await register_user(client, "perm_owner1@example.com", "password123", "Компания 1")
+        token1 = await register_user(client, "perm_owner1@example.com", "password123", is_company=True)
         company1 = await client.post("/owner/company", headers=auth_headers(token1), json={
             "name": "Компания 1",
             "city": "Москва"
         })
         
-        token2 = await register_user(client, "perm_owner2@example.com", "password123", "Компания 2")
+        token2 = await register_user(client, "perm_owner2@example.com", "password123", is_company=True)
         company2 = await client.post("/owner/company", headers=auth_headers(token2), json={
             "name": "Компания 2",
             "city": "Санкт-Петербург"
@@ -806,7 +812,7 @@ class TestPermissions:
         service_id = service_resp.json()["id"]
         
         # Клиент создаёт запись
-        client_token = await register_user(client, "perm_client@example.com", "password123")
+        client_token = await register_user(client, "perm_client@example.com", "password123", is_company=False)
         tomorrow_date = datetime.now().date() + timedelta(days=1)
         
         # Настраиваем расписание
