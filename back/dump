@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ktaDYxMbfgIHTsMXgJQ0DavR1rWhbuwPtsNAVnatCLIOecSVjcXbAycQECA9zU8
+\restrict Mx5q95INdp3lkvb6TH0tHwQE61H40iJZ5bj9tKr9AUquA1nbKdObgvFO95DUZaY
 
 -- Dumped from database version 15.15 (Debian 15.15-1.pgdg13+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-1.pgdg13+1)
@@ -189,7 +189,6 @@ CREATE TABLE public.users (
     email character varying(255) NOT NULL,
     hashed_password character varying(255) NOT NULL,
     role public.userrole NOT NULL,
-    company_name character varying(255),
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     id integer NOT NULL
 );
@@ -297,7 +296,7 @@ ALTER TABLE ONLY public.working_hours ALTER COLUMN id SET DEFAULT nextval('publi
 --
 
 COPY public.alembic_version (version_num) FROM stdin;
-d4765d5c056d
+2b63ffb2c681
 \.
 
 
@@ -309,6 +308,9 @@ COPY public.bookings (user_id, service_id, company_id, start_at, end_at, status,
 7	1	1	2026-03-10 13:00:00+00	2026-03-10 13:45:00+00	confirmed	Хочу покороче на висках	2026-03-09 11:55:47.05307+00	1
 7	4	2	2026-03-12 15:00:00+00	2026-03-12 16:30:00+00	pending	\N	2026-03-09 11:55:47.05307+00	2
 8	2	1	2026-03-07 10:00:00+00	2026-03-07 10:30:00+00	cancelled	Передумал	2026-03-09 11:55:47.05307+00	3
+10	7	4	2026-03-23 03:00:00+00	2026-03-23 05:00:00+00	confirmed	\N	2026-03-23 14:43:57.466183+00	4
+10	1	1	2026-03-23 01:45:00+00	2026-03-23 02:30:00+00	pending	\N	2026-03-23 14:50:54.003069+00	5
+10	1	1	2026-03-23 07:00:00+00	2026-03-23 07:45:00+00	pending	\N	2026-03-23 14:50:56.704415+00	6
 \.
 
 
@@ -319,6 +321,7 @@ COPY public.bookings (user_id, service_id, company_id, start_at, end_at, status,
 COPY public.companies (owner_id, name, description, category, city, address, phone, is_active, created_at, id) FROM stdin;
 5	Барбершоп «Непробиваемые чурки»	Мужские стрижки и уход за бородой. Только опытные мастера.	Барбершоп	Москва	ул. Арбат, 10	+7 999 100-00-01	t	2026-03-09 11:55:47.05307+00	1
 6	Студия маникюра «Nail Art»	Маникюр, педикюр, наращивание ногтей. Работаем без выходных.	Маникюр	Санкт-Петербург	Невский пр., 55	+7 999 200-00-02	t	2026-03-09 11:55:47.05307+00	2
+11	Сияющее лукошко	Процедуры по уходу для сладеньких мальчиков	Уход	Иркутск	Лермонтова, 83	8 (395) 240-50-00	t	2026-03-23 14:31:00.543783+00	4
 \.
 
 
@@ -333,6 +336,10 @@ COPY public.services (company_id, name, description, price, duration_minutes, is
 2	Маникюр с покрытием	Аппаратный маникюр + гель-лак на выбор	2500.00	90	t	4
 2	Педикюр	Классический педикюр с покрытием	2800.00	120	t	5
 2	Наращивание ногтей	Наращивание на формах или типсах, любая длина	3500.00	150	t	6
+4	Депиляция "Лысый Орёл"	Удаление волос воском в самых неожиданных местах. Процедура для тех, кто хочет, чтобы его интимные зоны блестели на солнце ярче, чем лысина Ильича. Кричите сколько влезет — звукоизоляция за наш счет.	5000.00	120	t	7
+4	Шоколадное Обертывание "Трюфельный Плен"	Вас обмазывают дорогущим шоколадом и заворачивают в плен, чтобы вы почувствовали себя дорогим конфетным изделием, которое вот-вот съедят. Выходить липким — обязательно	3500.00	60	t	8
+4	Грязевые ванны "Болотный дядя"	Лежишь в жиже, пахнущей серой и древними тайнами, и чувствуешь себя элитным свином в спа-салоне. Грязь вытягивает всё дерьмо из организма (в прямом и переносном смысле), оставляя тебя чистым и просветлённым, хоть и немного вонючим первые полчаса	7000.00	60	t	9
+4	Вакуумный поцелуй банки	Баночный массаж для тех, кто хочет ходить с фиолетовыми пятнами, как после бурной ночи с инопланетянином. Выглядит жутко, зато токсины выходят со свистом, а кожа подтягивается, будто её кто-то хорошенько отшлёпал	3000.00	67	t	10
 \.
 
 
@@ -340,15 +347,18 @@ COPY public.services (company_id, name, description, price, duration_minutes, is
 -- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.users (email, hashed_password, role, company_name, created_at, id) FROM stdin;
-user@example.com	$2b$12$4DMVpUNlXNH3HVNI.f2CyuJEvsVJcuz93Eycj/hI5GXK3H/rWJYHi	user	string	2026-03-02 12:37:02.876642+00	1
-s@m.ru	$2b$12$duiFXqjsNf55bB0RGAChrO/mCPlJQ4Unop2NQXCn8ezb3N2aiR8x2	user	\N	2026-03-02 12:37:32.222162+00	2
-user@ыва.com	$2b$12$y9ZU8aTrJ6MVSbktz3isQuOjyl./mEUi.z3fY.GD7omZ.oZwZLi5a	company	string	2026-03-09 11:53:25.36352+00	3
-admin@example.com	$2b$12$k9M0Y49V.FFOdZKE5mTDMuGAu5sHSw1GPgKjVWy3SJMG6Q3EN.q1y	admin	\N	2026-03-09 11:55:47.05307+00	4
-owner1@example.com	$2b$12$vWAQjrauqyjCD55jqRcgW.D5ZhsP8DO.iceENx/LoCaybEnCIg9fS	company	Барбершоп «Топор»	2026-03-09 11:55:47.05307+00	5
-owner2@example.com	$2b$12$SmMJDTN.VrchdlhkIKNdLeOyCyM0pK.yivG.GGJuNe/5PEOgg5Lhu	company	Студия маникюра «Nail Art»	2026-03-09 11:55:47.05307+00	6
-user1@example.com	$2b$12$R8cz7WqptoYdW59O9UkAZeqZb27CzqUeFU4JT72GY517wFiFNkGEO	user	\N	2026-03-09 11:55:47.05307+00	7
-user2@example.com	$2b$12$D21lFteLElAcgtrLeoFqqejeXbX3FD6Tr78rACoJmugW6cIHTBD0m	user	\N	2026-03-09 11:55:47.05307+00	8
+COPY public.users (email, hashed_password, role, created_at, id) FROM stdin;
+user@example.com	$2b$12$4DMVpUNlXNH3HVNI.f2CyuJEvsVJcuz93Eycj/hI5GXK3H/rWJYHi	user	2026-03-02 12:37:02.876642+00	1
+s@m.ru	$2b$12$duiFXqjsNf55bB0RGAChrO/mCPlJQ4Unop2NQXCn8ezb3N2aiR8x2	user	2026-03-02 12:37:32.222162+00	2
+user@ыва.com	$2b$12$y9ZU8aTrJ6MVSbktz3isQuOjyl./mEUi.z3fY.GD7omZ.oZwZLi5a	company	2026-03-09 11:53:25.36352+00	3
+admin@example.com	$2b$12$k9M0Y49V.FFOdZKE5mTDMuGAu5sHSw1GPgKjVWy3SJMG6Q3EN.q1y	admin	2026-03-09 11:55:47.05307+00	4
+owner1@example.com	$2b$12$vWAQjrauqyjCD55jqRcgW.D5ZhsP8DO.iceENx/LoCaybEnCIg9fS	company	2026-03-09 11:55:47.05307+00	5
+owner2@example.com	$2b$12$SmMJDTN.VrchdlhkIKNdLeOyCyM0pK.yivG.GGJuNe/5PEOgg5Lhu	company	2026-03-09 11:55:47.05307+00	6
+user1@example.com	$2b$12$R8cz7WqptoYdW59O9UkAZeqZb27CzqUeFU4JT72GY517wFiFNkGEO	user	2026-03-09 11:55:47.05307+00	7
+user2@example.com	$2b$12$D21lFteLElAcgtrLeoFqqejeXbX3FD6Tr78rACoJmugW6cIHTBD0m	user	2026-03-09 11:55:47.05307+00	8
+adfs@mail.ru	$2b$12$6o7gQ5ktmwRIcjwRBL7FsO6X016Q08saSuPD2.4nlGiJIn//U2zG6	company	2026-03-23 14:20:57.458184+00	9
+admin@mail.ru	$2b$12$K8s2oQCedvlrUM4HfOtKzeR0gpC9sVAo25qnSh.SuP7/NnrvU6RBq	user	2026-03-23 14:21:53.680114+00	10
+sweet@mail.ru	$2b$12$WaDeMzlIR5anSv7pPWLInOwUju10A51vpJpl3.6CaY8o1nTveVNua	company	2026-03-23 14:29:45.852627+00	11
 \.
 
 
@@ -371,6 +381,13 @@ COPY public.working_hours (company_id, day_of_week, start_time, end_time, is_wor
 2	4	10:00:00	21:00:00	t	12
 2	5	10:00:00	21:00:00	t	13
 2	6	10:00:00	21:00:00	t	14
+4	0	09:00:00	18:00:00	t	15
+4	1	09:00:00	18:00:00	t	16
+4	2	09:00:00	18:00:00	t	17
+4	3	09:00:00	18:00:00	t	18
+4	4	09:00:00	18:00:00	t	19
+4	5	00:00:00	00:00:00	f	20
+4	6	00:00:00	00:00:00	f	21
 \.
 
 
@@ -378,35 +395,35 @@ COPY public.working_hours (company_id, day_of_week, start_time, end_time, is_wor
 -- Name: bookings_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.bookings_id_seq', 3, true);
+SELECT pg_catalog.setval('public.bookings_id_seq', 6, true);
 
 
 --
 -- Name: companies_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.companies_id_seq', 2, true);
+SELECT pg_catalog.setval('public.companies_id_seq', 4, true);
 
 
 --
 -- Name: services_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.services_id_seq', 6, true);
+SELECT pg_catalog.setval('public.services_id_seq', 10, true);
 
 
 --
 -- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.users_id_seq', 8, true);
+SELECT pg_catalog.setval('public.users_id_seq', 11, true);
 
 
 --
 -- Name: working_hours_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.working_hours_id_seq', 14, true);
+SELECT pg_catalog.setval('public.working_hours_id_seq', 21, true);
 
 
 --
@@ -587,5 +604,5 @@ ALTER TABLE ONLY public.working_hours
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ktaDYxMbfgIHTsMXgJQ0DavR1rWhbuwPtsNAVnatCLIOecSVjcXbAycQECA9zU8
+\unrestrict Mx5q95INdp3lkvb6TH0tHwQE61H40iJZ5bj9tKr9AUquA1nbKdObgvFO95DUZaY
 
