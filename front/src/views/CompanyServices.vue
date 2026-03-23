@@ -3,97 +3,101 @@
     <header>
       <div class="logo">AutoBooking — Панель компании</div>
       <div class="nav">
-        <button @click="router.push('/company/calendar')">Календарь</button>
-        <button @click="router.push('/company/bookings')">Записи</button>
-        <button @click="handleLogout">Выход</button>
+        <button type="button" @click="router.push('/company/calendar')">Календарь</button>
+        <button type="button" @click="router.push('/company/bookings')">Записи</button>
+        <button type="button" @click="handleLogout">Выход</button>
       </div>
     </header>
 
     <div class="container">
-      <!-- Создание услуги -->
-      <div class="form-card">
-        <h2>Создать услугу</h2>
+      <div v-if="pageError" class="error-banner">{{ pageError }}</div>
 
-        <form @submit.prevent="createService">
-          <input 
-            v-model="form.name" 
-            type="text" 
-            placeholder="Название услуги" 
+      <div class="form-card">
+        <h2>{{ editingId ? 'Редактировать услугу' : 'Создать услугу' }}</h2>
+
+        <form @submit.prevent="editingId ? updateService() : createService()">
+          <input
+            v-model="form.name"
+            type="text"
+            placeholder="Название услуги"
             required
             :class="{ error: errors.name }"
           />
           <span v-if="errors.name" class="error-text">{{ errors.name }}</span>
 
-          <textarea 
-            v-model="form.description" 
+          <textarea
+            v-model="form.description"
             placeholder="Описание услуги"
             rows="3"
           ></textarea>
 
-          <select v-model="form.category" required>
-            <option value="">Категория</option>
-            <option value="repair">Ремонт</option>
-            <option value="diagnostics">Диагностика</option>
-            <option value="wash">Мойка</option>
-            <option value="detailing">Детейлинг</option>
-            <option value="barber">Барбершоп</option>
-            <option value="beauty">Салон красоты</option>
-            <option value="massage">Массаж</option>
-          </select>
-
-          <input 
-            v-model.number="form.price" 
-            type="number" 
-            placeholder="Цена (₽)" 
-            required
+          <input
+            v-model.number="form.price"
+            type="number"
+            placeholder="Цена (₽), необязательно"
             min="0"
-            :class="{ error: errors.price }"
+            step="0.01"
           />
-          <span v-if="errors.price" class="error-text">{{ errors.price }}</span>
 
-          <input 
-            v-model.number="form.duration" 
-            type="number" 
-            placeholder="Длительность (мин)" 
+          <input
+            v-model.number="form.duration"
+            type="number"
+            placeholder="Длительность (мин)"
             required
             min="5"
             :class="{ error: errors.duration }"
           />
           <span v-if="errors.duration" class="error-text">{{ errors.duration }}</span>
 
-          <button type="submit" class="primary" :disabled="creating">
-            {{ creating ? 'Создание...' : 'Добавить услугу' }}
+          <label class="checkbox-row">
+            <input v-model="form.is_active" type="checkbox" />
+            Активна (видна клиентам)
+          </label>
+
+          <button type="submit" class="primary" :disabled="creating || !companyId">
+            {{
+              creating
+                ? 'Сохранение...'
+                : editingId
+                  ? 'Сохранить изменения'
+                  : 'Добавить услугу'
+            }}
+          </button>
+          <button
+            v-if="editingId"
+            type="button"
+            class="secondary"
+            @click="cancelEdit"
+          >
+            Отмена
           </button>
         </form>
 
         <div v-if="createError" class="error-message">{{ createError }}</div>
-        <div v-if="createSuccess" class="success-message">Услуга добавлена!</div>
+        <div v-if="createSuccess" class="success-message">Сохранено</div>
       </div>
 
-      <!-- Список услуг -->
       <div class="services-list">
         <h2>Мои услуги</h2>
 
         <div v-if="loading" class="loading">Загрузка...</div>
-        <div v-else-if="services.length === 0" class="empty-state">
-          Пока нет услуг
+        <div v-else-if="!companyId" class="empty-state">
+          Сначала создайте компанию в разделе «Записи».
         </div>
+        <div v-else-if="services.length === 0" class="empty-state">Пока нет услуг</div>
 
         <div v-else class="services-items">
-          <div 
-            v-for="service in services" 
-            :key="service.id" 
-            class="service-item"
-          >
+          <div v-for="svc in services" :key="svc.id" class="service-item">
             <div class="service-info">
-              <strong>{{ service.name }}</strong>
-              <span>{{ formatPrice(service.price) }} • {{ service.duration_minutes }} мин</span>
+              <strong>{{ svc.name }}</strong>
+              <span>
+                {{ formatPrice(svc.price) }} · {{ svc.duration_minutes }} мин
+                <span v-if="!svc.is_active" class="badge">скрыта</span>
+              </span>
             </div>
             <div class="service-actions">
-              <button class="edit-btn" @click="editService(service)">
-                Редактировать
-              </button>
-              <button class="delete-btn" @click="deleteService(service.id)">
+              <button type="button" class="edit-btn" @click="startEdit(svc)">Изменить</button>
+              <button type="button" class="delete-btn" @click="removeService(svc.id)">
                 Удалить
               </button>
             </div>
@@ -105,8 +109,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+
+import { API_URL } from '@/config';
+import { formatApiError } from '@/utils/apiError';
 import { useAuth } from '@/composables/useAuth';
 
 const router = useRouter();
@@ -116,77 +123,88 @@ const loading = ref(false);
 const creating = ref(false);
 const createError = ref('');
 const createSuccess = ref(false);
+const pageError = ref('');
 
-const errors = reactive({ name: '', price: '', duration: '' });
+const companyId = ref(null);
+const services = ref([]);
+const editingId = ref(null);
+
+const errors = reactive({ name: '', duration: '' });
 
 const form = reactive({
   name: '',
   description: '',
-  category: '',
-  price: 0,
-  duration: 0,
+  price: null,
+  duration: null,
+  is_active: true,
 });
-
-const services = ref([
-  // Заглушка, позже загрузим из API
-  { id: 1, name: 'Замена масла', price: 2000, duration_minutes: 40 },
-  { id: 2, name: 'Комплексная мойка', price: 1500, duration_minutes: 60 },
-]);
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 onMounted(async () => {
-  await loadServices();
+  await loadCompanyAndServices();
 });
 
-const loadServices = async () => {
+async function loadCompanyAndServices() {
   loading.value = true;
-  
+  pageError.value = '';
+
   try {
     const token = localStorage.getItem('access_token');
-    // TODO: Заменить на реальный эндпоинт получения услуг компании
-    const response = await fetch(`${API_URL}/owner/company/services`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+    const response = await fetch(`${API_URL}/owner/company`, {
+      headers: { Authorization: `Bearer ${token}` },
     });
 
-    if (response.ok) {
-      services.value = await response.json();
+    if (response.status === 404) {
+      companyId.value = null;
+      services.value = [];
+      pageError.value = 'Создайте компанию на странице записей.';
+      return;
     }
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(formatApiError(data));
+    }
+
+    companyId.value = data.id;
+    services.value = Array.isArray(data.services) ? data.services : [];
   } catch (err) {
-    console.error('Ошибка загрузки услуг:', err);
+    pageError.value = err.message;
+    services.value = [];
   } finally {
     loading.value = false;
   }
-};
+}
 
-const validateForm = () => {
+function validateForm() {
   errors.name = '';
-  errors.price = '';
   errors.duration = '';
-  let isValid = true;
+  let ok = true;
 
-  if (!form.name) {
-    errors.name = 'Введите название услуги';
-    isValid = false;
-  }
-
-  if (!form.price || form.price <= 0) {
-    errors.price = 'Укажите корректную цену';
-    isValid = false;
+  if (!form.name.trim()) {
+    errors.name = 'Введите название';
+    ok = false;
   }
 
   if (!form.duration || form.duration < 5) {
-    errors.duration = 'Длительность должна быть от 5 минут';
-    isValid = false;
+    errors.duration = 'Длительность от 5 минут';
+    ok = false;
   }
 
-  return isValid;
-};
+  return ok;
+}
 
-const createService = async () => {
-  if (!validateForm()) return;
+function resetForm() {
+  form.name = '';
+  form.description = '';
+  form.price = null;
+  form.duration = 60;
+  form.is_active = true;
+  editingId.value = null;
+}
+
+async function createService() {
+  if (!companyId.value || !validateForm()) return;
 
   creating.value = true;
   createError.value = '';
@@ -194,90 +212,135 @@ const createService = async () => {
 
   try {
     const token = localStorage.getItem('access_token');
-    
-    // TODO: Заменить на реальный эндпоинт создания услуги
-    const response = await fetch(`${API_URL}/owner/company/services`, {
+    const body = {
+      name: form.name.trim(),
+      description: form.description.trim() || null,
+      price: form.price === '' || form.price === null ? null : Number(form.price),
+      duration_minutes: Number(form.duration),
+      is_active: form.is_active,
+    };
+
+    const response = await fetch(`${API_URL}/owner/company/${companyId.value}/services`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        name: form.name,
-        description: form.description || null,
-        category: form.category || null,
-        price: form.price,
-        duration_minutes: form.duration,
-      }),
+      body: JSON.stringify(body),
     });
 
-    if (!response.ok) {
-      throw new Error('Ошибка создания услуги');
-    }
+    const data = await response.json().catch(() => ({}));
 
-    // Очистка формы
-    form.name = '';
-    form.description = '';
-    form.category = '';
-    form.price = 0;
-    form.duration = 0;
+    if (!response.ok) {
+      throw new Error(formatApiError(data));
+    }
 
     createSuccess.value = true;
     setTimeout(() => {
       createSuccess.value = false;
-    }, 3000);
-
-    // Перезагрузка списка
-    await loadServices();
+    }, 2000);
+    resetForm();
+    await loadCompanyAndServices();
   } catch (err) {
     createError.value = err.message;
   } finally {
     creating.value = false;
   }
-};
+}
 
-const editService = (service) => {
-  // TODO: Реализовать редактирование (модальное окно или переход на страницу)
-  alert(`Редактировать услугу: ${service.name}`);
-};
+function startEdit(svc) {
+  editingId.value = svc.id;
+  form.name = svc.name;
+  form.description = svc.description || '';
+  form.price = svc.price;
+  form.duration = svc.duration_minutes;
+  form.is_active = svc.is_active;
+}
 
-const deleteService = async (serviceId) => {
-  if (!confirm('Вы уверены, что хотите удалить эту услугу?')) return;
+function cancelEdit() {
+  resetForm();
+}
+
+async function updateService() {
+  if (!editingId.value || !validateForm()) return;
+
+  creating.value = true;
+  createError.value = '';
+  createSuccess.value = false;
 
   try {
     const token = localStorage.getItem('access_token');
-    
-    // TODO: Заменить на реальный эндпоинт удаления услуги
-    const response = await fetch(`${API_URL}/owner/company/services/${serviceId}`, {
-      method: 'DELETE',
+    const body = {
+      name: form.name.trim(),
+      description: form.description.trim() || null,
+      price: form.price === '' || form.price === null ? null : Number(form.price),
+      duration_minutes: Number(form.duration),
+      is_active: form.is_active,
+    };
+
+    const response = await fetch(`${API_URL}/owner/services/${editingId.value}`, {
+      method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(formatApiError(data));
+    }
+
+    createSuccess.value = true;
+    setTimeout(() => {
+      createSuccess.value = false;
+    }, 2000);
+    resetForm();
+    await loadCompanyAndServices();
+  } catch (err) {
+    createError.value = err.message;
+  } finally {
+    creating.value = false;
+  }
+}
+
+async function removeService(serviceId) {
+  if (!confirm('Удалить услугу? Связанные записи будут удалены.')) return;
+
+  try {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(`${API_URL}/owner/services/${serviceId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!response.ok) {
-      throw new Error('Ошибка удаления');
+      const data = await response.json().catch(() => ({}));
+      throw new Error(formatApiError(data));
     }
 
-    services.value = services.value.filter(s => s.id !== serviceId);
+    services.value = services.value.filter((s) => s.id !== serviceId);
+    if (editingId.value === serviceId) resetForm();
   } catch (err) {
     alert(err.message);
   }
-};
+}
 
-const handleLogout = () => {
+function handleLogout() {
   logout();
-  router.push('/');
-};
+}
 
-const formatPrice = (price) => {
-  return new Intl.NumberFormat('ru-RU').format(price) + ' ₽';
-};
+function formatPrice(price) {
+  if (price === null || price === undefined) return 'Цена не указана';
+  return `${new Intl.NumberFormat('ru-RU').format(price)} ₽`;
+}
 </script>
 
 <style scoped>
 .services-page {
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
   background: #f3f4f6;
   min-height: 100vh;
 }
@@ -325,6 +388,14 @@ header {
   flex-wrap: wrap;
 }
 
+.error-banner {
+  width: 100%;
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 12px 16px;
+  border-radius: 12px;
+}
+
 .form-card,
 .services-list {
   flex: 1;
@@ -332,7 +403,7 @@ header {
   background: white;
   padding: 30px;
   border-radius: 20px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
 }
 
 .form-card h2,
@@ -342,8 +413,7 @@ header {
 }
 
 input,
-textarea,
-select {
+textarea {
   width: 100%;
   padding: 12px;
   margin-bottom: 15px;
@@ -355,8 +425,7 @@ select {
 }
 
 input:focus,
-textarea:focus,
-select:focus {
+textarea:focus {
   outline: none;
   border-color: #16a34a;
 }
@@ -373,20 +442,39 @@ input.error {
   display: block;
 }
 
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #374151;
+}
+
+.checkbox-row input {
+  width: auto;
+  margin: 0;
+}
+
 textarea {
   resize: none;
 }
 
-.primary {
+.primary,
+.secondary {
   width: 100%;
   padding: 12px;
   border-radius: 10px;
   border: none;
-  background: #16a34a;
-  color: white;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s;
+  margin-bottom: 8px;
+}
+
+.primary {
+  background: #16a34a;
+  color: white;
 }
 
 .primary:hover:not(:disabled) {
@@ -396,6 +484,11 @@ textarea {
 .primary:disabled {
   background: #86efac;
   cursor: not-allowed;
+}
+
+.secondary {
+  background: #e5e7eb;
+  color: #374151;
 }
 
 .error-message {
@@ -455,6 +548,12 @@ textarea {
   font-size: 14px;
 }
 
+.badge {
+  margin-left: 8px;
+  color: #92400e;
+  font-weight: 600;
+}
+
 .service-actions button {
   padding: 6px 10px;
   border-radius: 8px;
@@ -470,17 +569,9 @@ textarea {
   color: #1f2937;
 }
 
-.edit-btn:hover {
-  background: #fbbf24;
-}
-
 .delete-btn {
   background: #ef4444;
   color: white;
-}
-
-.delete-btn:hover {
-  background: #dc2626;
 }
 
 @media (max-width: 768px) {
@@ -501,11 +592,6 @@ textarea {
     flex-direction: column;
     gap: 15px;
     text-align: center;
-  }
-
-  .service-actions {
-    display: flex;
-    justify-content: center;
   }
 }
 </style>

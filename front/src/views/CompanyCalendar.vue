@@ -3,95 +3,79 @@
     <header>
       <div class="logo">AutoBooking — Календарь</div>
       <div class="nav">
-        <button @click="router.push('/company/services')">Услуги</button>
-        <button @click="router.push('/company/bookings')">Записи</button>
-        <button @click="handleLogout">Выход</button>
+        <button type="button" @click="router.push('/company/services')">Услуги</button>
+        <button type="button" @click="router.push('/company/bookings')">Записи</button>
+        <button type="button" @click="handleLogout">Выход</button>
       </div>
     </header>
 
     <div class="container">
-      <!-- Настройка -->
-      <div class="settings-card">
-        <h2>Настройка рабочего времени</h2>
+      <div v-if="pageError" class="error-banner">{{ pageError }}</div>
 
-        <label>Рабочие дни</label>
-        <div class="days">
-          <div 
-            v-for="(day, index) in weekDays" 
-            :key="index"
-            :class="['day', { active: workingDays.includes(index) }]"
-            @click="toggleDay(index)"
-          >
-            {{ day }}
-          </div>
-        </div>
-
-        <label>Начало рабочего дня</label>
-        <input 
-          v-model="settings.startTime" 
-          type="time" 
-          @change="updatePreview"
-        />
-
-        <label>Конец рабочего дня</label>
-        <input 
-          v-model="settings.endTime" 
-          type="time" 
-          @change="updatePreview"
-        />
-
-        <label>Интервал записи (мин)</label>
-        <select v-model="settings.interval" @change="updatePreview">
-          <option value="15">15</option>
-          <option value="30">30</option>
-          <option value="45">45</option>
-          <option value="60">60</option>
-        </select>
-
-        <label>Перерыв (необязательно)</label>
-        <div class="break-time">
-          <input v-model="settings.breakStart" type="time" placeholder="Начало" />
-          <input v-model="settings.breakEnd" type="time" placeholder="Конец" />
-        </div>
-
-        <button 
-          class="primary" 
-          @click="saveSettings" 
-          :disabled="saving"
-        >
-          {{ saving ? 'Сохранение...' : 'Сохранить настройки' }}
-        </button>
-
-        <div v-if="saveError" class="error-message">{{ saveError }}</div>
-        <div v-if="saveSuccess" class="success-message">Настройки сохранены!</div>
+      <div v-else-if="!companyId" class="empty-state">
+        Сначала создайте компанию в разделе «Записи».
       </div>
 
-      <!-- Предпросмотр -->
-      <div class="preview-card">
-        <h2>Предпросмотр слотов</h2>
-        <p style="color:#6b7280;">Пример доступных слотов на день</p>
+      <template v-else>
+        <div class="settings-card">
+          <h2>Рабочие дни и часы</h2>
+          <p class="hint">
+            Одинаковые часы для всех выбранных дней. Сохранение отправляет расписание на сервер (7 дней).
+          </p>
 
-        <div v-if="previewSlots.length === 0" class="no-slots">
-          Выберите рабочие дни и время
+          <label>Рабочие дни</label>
+          <div class="days">
+            <div
+              v-for="(day, index) in weekDays"
+              :key="day"
+              :class="['day', { active: workingDays.includes(index) }]"
+              role="button"
+              tabindex="0"
+              @click="toggleDay(index)"
+              @keyup.enter="toggleDay(index)"
+            >
+              {{ day }}
+            </div>
+          </div>
+
+          <label>Начало</label>
+          <input v-model="settings.startTime" type="time" @change="updatePreview" />
+
+          <label>Конец</label>
+          <input v-model="settings.endTime" type="time" @change="updatePreview" />
+
+          <button type="button" class="primary" :disabled="saving" @click="saveSchedule">
+            {{ saving ? 'Сохранение...' : 'Сохранить расписание' }}
+          </button>
+
+          <div v-if="saveError" class="error-message">{{ saveError }}</div>
+          <div v-if="saveSuccess" class="success-message">Расписание сохранено</div>
         </div>
 
-        <div v-else class="slots">
-          <div 
-            v-for="(slot, index) in previewSlots" 
-            :key="index"
-            class="slot"
-          >
-            {{ slot }}
+        <div class="preview-card">
+          <h2>Предпросмотр слотов</h2>
+          <p class="muted">Пример интервалов для одного дня (как визуальная подсказка)</p>
+
+          <div v-if="previewSlots.length === 0" class="no-slots">
+            Выберите рабочие дни и время
+          </div>
+          <div v-else class="slots">
+            <div v-for="(slot, index) in previewSlots" :key="index" class="slot">
+              {{ slot }}
+            </div>
           </div>
         </div>
-      </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+
+import { API_URL } from '@/config';
+import { formatApiError } from '@/utils/apiError';
 import { useAuth } from '@/composables/useAuth';
 
 const router = useRouter();
@@ -99,14 +83,10 @@ const { logout } = useAuth();
 
 const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-const workingDays = ref([0, 1, 2, 3, 4]); // Пн-Пт по умолчанию
-
+const workingDays = ref([0, 1, 2, 3, 4]);
 const settings = reactive({
   startTime: '09:00',
   endTime: '18:00',
-  interval: '30',
-  breakStart: '',
-  breakEnd: '',
 });
 
 const previewSlots = ref([]);
@@ -114,33 +94,82 @@ const saving = ref(false);
 const saveError = ref('');
 const saveSuccess = ref(false);
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const companyId = ref(null);
+const pageError = ref('');
 
-onMounted(() => {
+onMounted(async () => {
+  await loadCompanySchedule();
   updatePreview();
 });
 
-const toggleDay = (index) => {
+function toHHMMSS(time) {
+  if (!time) return '09:00:00';
+  const s = String(time);
+  if (s.length >= 8) return s;
+  if (s.length === 5) return `${s}:00`;
+  return `${s}:00`;
+}
+
+function fromTimeInput(isoTime) {
+  const s = toHHMMSS(isoTime);
+  return s.slice(0, 5);
+}
+
+async function loadCompanySchedule() {
+  pageError.value = '';
+
+  try {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(`${API_URL}/owner/company`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (response.status === 404) {
+      companyId.value = null;
+      return;
+    }
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(formatApiError(data));
+    }
+
+    companyId.value = data.id;
+    const wh = data.working_hours || [];
+
+    if (wh.length > 0) {
+      workingDays.value = wh.filter((d) => d.is_working).map((d) => d.day_of_week);
+      const first = wh.find((d) => d.is_working);
+      if (first) {
+        settings.startTime = fromTimeInput(first.start_time);
+        settings.endTime = fromTimeInput(first.end_time);
+      }
+    }
+  } catch (err) {
+    pageError.value = err.message;
+  }
+}
+
+function toggleDay(index) {
   const pos = workingDays.value.indexOf(index);
   if (pos === -1) {
     workingDays.value.push(index);
+    workingDays.value.sort((a, b) => a - b);
   } else {
     workingDays.value.splice(pos, 1);
   }
   updatePreview();
-};
+}
 
-const updatePreview = () => {
+function updatePreview() {
   previewSlots.value = [];
 
   if (workingDays.value.length === 0) return;
 
-  const start = settings.startTime;
-  const end = settings.endTime;
-  const interval = parseInt(settings.interval);
-
-  const [startHour, startMin] = start.split(':').map(Number);
-  const [endHour, endMin] = end.split(':').map(Number);
+  const interval = 30;
+  const [startHour, startMin] = settings.startTime.split(':').map(Number);
+  const [endHour, endMin] = settings.endTime.split(':').map(Number);
 
   const startMinutes = startHour * 60 + startMin;
   const endMinutes = endHour * 60 + endMin;
@@ -150,68 +179,64 @@ const updatePreview = () => {
     const hours = Math.floor(current / 60);
     const mins = current % 60;
     const timeStr = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
-    
-    // Проверка перерыва
-    const isBreak = settings.breakStart && settings.breakEnd &&
-      timeStr >= settings.breakStart && timeStr < settings.breakEnd;
-
-    if (!isBreak) {
-      previewSlots.value.push(timeStr);
-    }
-
+    previewSlots.value.push(timeStr);
     current += interval;
   }
-};
+}
 
-const saveSettings = async () => {
+async function saveSchedule() {
+  if (!companyId.value) return;
+
   saving.value = true;
   saveError.value = '';
   saveSuccess.value = false;
 
-  try {
-    const token = localStorage.getItem('access_token');
-    
-    // TODO: Заменить на реальный эндпоинт сохранения расписания
-    const response = await fetch(`${API_URL}/owner/company/working-hours`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        working_days: workingDays.value,
-        start_time: settings.startTime,
-        end_time: settings.endTime,
-        interval_minutes: parseInt(settings.interval),
-        break_start: settings.breakStart || null,
-        break_end: settings.breakEnd || null,
-      }),
-    });
+  const token = localStorage.getItem('access_token');
+  const start = `${settings.startTime}:00`;
+  const end = `${settings.endTime}:00`;
 
-    if (!response.ok) {
-      throw new Error('Ошибка сохранения');
+  try {
+    for (let day = 0; day < 7; day += 1) {
+      const isWorking = workingDays.value.includes(day);
+      const body = isWorking
+        ? { day_of_week: day, start_time: start, end_time: end, is_working: true }
+        : { day_of_week: day, start_time: '00:00:00', end_time: '00:00:00', is_working: false };
+
+      const response = await fetch(`${API_URL}/owner/company/${companyId.value}/schedule`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(formatApiError(data));
+      }
     }
 
     saveSuccess.value = true;
     setTimeout(() => {
       saveSuccess.value = false;
-    }, 3000);
+    }, 2500);
   } catch (err) {
     saveError.value = err.message;
   } finally {
     saving.value = false;
   }
-};
+}
 
-const handleLogout = () => {
+function handleLogout() {
   logout();
-  router.push('/');
-};
+}
 </script>
 
 <style scoped>
 .calendar-page {
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
   background: #f3f4f6;
   min-height: 100vh;
 }
@@ -259,6 +284,24 @@ header {
   flex-wrap: wrap;
 }
 
+.error-banner {
+  width: 100%;
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 12px 16px;
+  border-radius: 12px;
+}
+
+.empty-state {
+  width: 100%;
+  text-align: center;
+  padding: 48px 20px;
+  background: white;
+  border-radius: 20px;
+  color: #6b7280;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+}
+
 .settings-card,
 .preview-card {
   flex: 1;
@@ -266,13 +309,24 @@ header {
   background: white;
   padding: 30px;
   border-radius: 20px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
 }
 
 .settings-card h2,
 .preview-card h2 {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   color: #1f2937;
+}
+
+.hint {
+  color: #6b7280;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.muted {
+  color: #6b7280;
+  font-size: 14px;
 }
 
 label {
@@ -310,8 +364,7 @@ label {
   color: #166534;
 }
 
-input,
-select {
+input {
   width: 100%;
   padding: 12px;
   margin-bottom: 15px;
@@ -321,16 +374,9 @@ select {
   transition: border-color 0.2s;
 }
 
-input:focus,
-select:focus {
+input:focus {
   outline: none;
   border-color: #16a34a;
-}
-
-.break-time {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
 }
 
 .primary {

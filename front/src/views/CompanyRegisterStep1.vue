@@ -120,8 +120,8 @@ const validateForm = () => {
   if (!form.password) {
     errors.password = 'Введите пароль';
     isValid = false;
-  } else if (form.password.length < 6) {
-    errors.password = 'Пароль должен быть не менее 6 символов';
+  } else if (form.password.length < 4) {
+    errors.password = 'Пароль должен быть не менее 4 символов';
     isValid = false;
   }
 
@@ -143,12 +143,8 @@ const handleRegister = async () => {
 
   try {
     // Вызываем API регистрации с company_name
-    const response = await register(form.email, form.password, form.companyName);
-    
-    // Сохраняем токен и роль
-    localStorage.setItem('access_token', response.access_token);
-    localStorage.setItem('user_role', 'company');
-    
+    await register(form.email, form.password, form.companyName);
+
     serverSuccess.value = true;
     
     // Перенаправляем в панель компании после небольшой задержки

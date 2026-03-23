@@ -37,7 +37,8 @@
       </div>
 
       <div class="footer-link">
-        Нет аккаунта? <router-link to="/register/company/step1">Зарегистрировать компанию</router-link>
+        Нет аккаунта?
+        <router-link to="/register/company">Зарегистрировать компанию</router-link>
       </div>
 
       <div class="footer-link">
@@ -49,11 +50,12 @@
 
 <script setup>
 import { ref, reactive } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuth } from '@/composables/useAuth';
 
 const router = useRouter();
-const { login } = useAuth();
+const route = useRoute();
+const { login, user } = useAuth();
 
 const loading = ref(false);
 const serverError = ref('');
@@ -80,8 +82,8 @@ const validateForm = () => {
   if (!form.password) {
     errors.password = 'Введите пароль';
     isValid = false;
-  } else if (form.password.length < 6) {
-    errors.password = 'Пароль должен быть не менее 6 символов';
+  } else if (form.password.length < 4) {
+    errors.password = 'Пароль должен быть не менее 4 символов';
     isValid = false;
   }
 
@@ -96,12 +98,20 @@ const handleLogin = async () => {
   loading.value = true;
 
   try {
-    const response = await login(form.email, form.password);
-    
-    localStorage.setItem('access_token', response.access_token);
-    localStorage.setItem('user_role', 'company');
-    
-    router.push('/dashboard/company');
+    await login(form.email, form.password);
+    const role = localStorage.getItem('user_role');
+
+    if (role !== 'company') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user_role');
+      user.value = null;
+      serverError.value = 'Этот аккаунт не является аккаунтом владельца компании.';
+      return;
+    }
+
+    const raw = typeof route.query.redirect === 'string' ? route.query.redirect : '';
+    const safe = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/dashboard/company';
+    router.push(safe);
   } catch (error) {
     serverError.value = error.message || 'Ошибка входа. Проверьте данные.';
   } finally {

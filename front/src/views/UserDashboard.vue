@@ -4,8 +4,9 @@
       <div class="logo">AutoBooking</div>
       <div class="nav">
         <span class="user-info">{{ user?.email }}</span>
-        <button @click="router.push('/bookings')">Мои записи</button>
-        <button @click="handleLogout">Выйти</button>
+        <button type="button" @click="router.push('/search')">Поиск компаний</button>
+        <button type="button" @click="router.push('/bookings')">Мои записи</button>
+        <button type="button" @click="handleLogout">Выйти</button>
       </div>
     </header>
 
@@ -13,52 +14,48 @@
       <h1>Найдите услугу и запишитесь онлайн</h1>
       <div class="subtitle">Быстро. Удобно. Без звонков.</div>
 
-      <!-- Поиск -->
       <div class="search-box">
-        <input 
-          v-model="search.query" 
-          type="text" 
-          placeholder="Название компании или услуги"
+        <input
+          v-model="search.query"
+          type="text"
+          placeholder="Название компании"
         />
-        <select v-model="search.category">
-          <option value="">Все категории</option>
-          <option value="auto">Автосервис</option>
-          <option value="tire">Шиномонтаж</option>
-          <option value="detailing">Детейлинг</option>
-          <option value="wash">Мойка</option>
-          <option value="barber">Барбершоп</option>
-          <option value="beauty">Салон красоты</option>
-        </select>
-        <button @click="handleSearch" :disabled="loading">
-          {{ loading ? 'Поиск...' : 'Найти' }}
+        <input
+          v-model="search.category"
+          type="text"
+          placeholder="Категория (необязательно)"
+        />
+        <input v-model="search.city" type="text" placeholder="Город (необязательно)" />
+        <button type="button" @click="goSearch" :disabled="searchLoading">
+          {{ searchLoading ? '...' : 'Найти' }}
         </button>
       </div>
 
-      <!-- Категории -->
-      <div class="categories">
-        <div 
-          v-for="category in categories" 
-          :key="category.id"
-          class="category-card"
-          @click="selectCategory(category.id)"
-        >
-          <h3>{{ category.name }}</h3>
-          <p>{{ category.description }}</p>
-        </div>
+      <div class="section" v-if="bookingsLoading">
+        <h2>Ближайшие записи</h2>
+        <p class="muted">Загрузка...</p>
       </div>
 
-      <!-- Последние записи -->
-      <div class="section" v-if="bookings.length > 0">
+      <div class="section" v-else-if="upcomingBookings.length > 0">
         <h2>Ближайшие записи</h2>
-        <div v-for="booking in bookings" :key="booking.id" class="booking-card">
+        <div
+          v-for="booking in upcomingBookings"
+          :key="booking.id"
+          class="booking-card"
+        >
           <div>
-            <strong>{{ booking.company_name }}</strong><br>
+            <strong>{{ metaLabel(booking.company_id, 'company') }}</strong>
+            <br />
+            {{ metaLabel(booking.service_id, 'service', booking.company_id) }}
+            <br />
             {{ formatDate(booking.start_at) }} • {{ formatTime(booking.start_at) }}
           </div>
-          <button 
-            class="cancel-btn" 
-            @click="cancelBooking(booking.id)"
+          <button
+            v-if="booking.status === 'pending' || booking.status === 'confirmed'"
+            type="button"
+            class="cancel-btn"
             :disabled="cancellingId === booking.id"
+            @click="cancelBooking(booking.id)"
           >
             {{ cancellingId === booking.id ? 'Отмена...' : 'Отменить' }}
           </button>
@@ -71,104 +68,168 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+
+import { API_URL } from '@/config';
+import { formatApiError } from '@/utils/apiError';
 import { useAuth } from '@/composables/useAuth';
 
 const router = useRouter();
 const { user, logout, fetchCurrentUser } = useAuth();
 
-const loading = ref(false);
+const searchLoading = ref(false);
+const bookingsLoading = ref(false);
 const error = ref('');
 const cancellingId = ref(null);
+const bookings = ref([]);
+const companyNames = ref({});
+const serviceNames = ref({});
 
 const search = reactive({
   query: '',
-  category: ''
+  category: '',
+  city: '',
 });
 
-const categories = ref([
-  { id: 'auto', name: 'Автосервис', description: 'Ремонт и обслуживание авто' },
-  { id: 'tire', name: 'Шиномонтаж', description: 'Замена и балансировка шин' },
-  { id: 'detailing', name: 'Детейлинг', description: 'Полировка и уход' },
-  { id: 'wash', name: 'Мойка', description: 'Комплексная мойка авто' },
-  { id: 'barber', name: 'Барбершоп', description: 'Мужские стрижки' },
-  { id: 'beauty', name: 'Салон красоты', description: 'Маникюр, педикюр' },
-  { id: 'massage', name: 'Массаж', description: 'Расслабляющий массаж' },
-  { id: 'medical', name: 'Медицина', description: 'Здоровье и красота' },
-]);
-
-const bookings = ref([
-  // Заглушка, позже загрузим из API
-  { id: 1, company_name: 'AutoFix Service', start_at: '2026-02-25T14:00:00Z' },
-  { id: 2, company_name: 'CleanCar', start_at: '2026-02-28T11:30:00Z' },
-]);
+const upcomingBookings = computed(() =>
+  bookings.value
+    .filter((b) => b.status !== 'cancelled' && new Date(b.start_at) >= new Date())
+    .slice(0, 5),
+);
 
 onMounted(async () => {
   try {
     await fetchCurrentUser();
-    // await loadBookings(); // Раскомментировать при наличии API
   } catch (err) {
     error.value = err.message;
   }
+  await loadBookings();
 });
 
-const handleSearch = async () => {
-  loading.value = true;
+function goSearch() {
+  searchLoading.value = true;
+  router
+    .push({
+      path: '/search',
+      query: {
+        ...(search.query.trim() ? { search: search.query.trim() } : {}),
+        ...(search.category.trim() ? { category: search.category.trim() } : {}),
+        ...(search.city.trim() ? { city: search.city.trim() } : {}),
+      },
+    })
+    .finally(() => {
+      searchLoading.value = false;
+    });
+}
+
+async function loadBookings() {
+  bookingsLoading.value = true;
   error.value = '';
-  
-  try {
-    // API вызов для поиска
-    console.log('Поиск:', search);
-    // const response = await fetch(...)
-  } catch (err) {
-    error.value = 'Ошибка поиска';
-  } finally {
-    loading.value = false;
+
+  const token = localStorage.getItem('access_token');
+  if (!token) {
+    bookingsLoading.value = false;
+    return;
   }
-};
 
-const selectCategory = (categoryId) => {
-  search.category = categoryId;
-  handleSearch();
-};
-
-const cancelBooking = async (bookingId) => {
-  cancellingId.value = bookingId;
-  
   try {
-    // API вызов для отмены
-    bookings.value = bookings.value.filter(b => b.id !== bookingId);
+    const response = await fetch(`${API_URL}/bookings/my`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(formatApiError(data));
+    }
+
+    bookings.value = Array.isArray(data) ? data : [];
+    await enrichBookingMeta(bookings.value);
   } catch (err) {
-    error.value = 'Не удалось отменить запись';
+    error.value = err.message;
+    bookings.value = [];
+  } finally {
+    bookingsLoading.value = false;
+  }
+}
+
+async function enrichBookingMeta(list) {
+  const companyIds = [...new Set(list.map((b) => b.company_id))];
+
+  await Promise.all(
+    companyIds.map(async (id) => {
+      try {
+        const res = await fetch(`${API_URL}/companies/${id}`);
+        if (!res.ok) return;
+        const company = await res.json();
+        companyNames.value[id] = company.name;
+        (company.services || []).forEach((s) => {
+          const key = `${id}:${s.id}`;
+          serviceNames.value[key] = s.name;
+        });
+      } catch {
+        /* ignore */
+      }
+    }),
+  );
+}
+
+function metaLabel(serviceOrCompanyId, kind, companyIdForService = null) {
+  if (kind === 'company') {
+    return companyNames.value[serviceOrCompanyId] || `Компания #${serviceOrCompanyId}`;
+  }
+  const key = `${companyIdForService}:${serviceOrCompanyId}`;
+  return serviceNames.value[key] || `Услуга #${serviceOrCompanyId}`;
+}
+
+async function cancelBooking(bookingId) {
+  if (!confirm('Отменить запись?')) return;
+
+  cancellingId.value = bookingId;
+
+  try {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(`${API_URL}/bookings/${bookingId}/cancel`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(formatApiError(data));
+    }
+
+    const booking = bookings.value.find((b) => b.id === bookingId);
+    if (booking) booking.status = 'cancelled';
+  } catch (err) {
+    error.value = err.message;
   } finally {
     cancellingId.value = null;
   }
-};
+}
 
-const handleLogout = () => {
+function handleLogout() {
   logout();
-  router.push('/');
-};
+}
 
-const formatDate = (dateString) => {
+function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString('ru-RU', {
     day: 'numeric',
-    month: 'long'
+    month: 'long',
   });
-};
+}
 
-const formatTime = (dateString) => {
+function formatTime(dateString) {
   return new Date(dateString).toLocaleTimeString('ru-RU', {
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
-};
+}
 </script>
 
 <style scoped>
 .dashboard-page {
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
   background: linear-gradient(135deg, #1e3a8a, #2563eb);
   min-height: 100vh;
   color: #111827;
@@ -191,6 +252,7 @@ header {
   display: flex;
   gap: 15px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .user-info {
@@ -220,7 +282,7 @@ header {
   background: white;
   padding: 40px;
   border-radius: 20px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 h1 {
@@ -236,11 +298,12 @@ h1 {
   display: flex;
   gap: 15px;
   margin-bottom: 40px;
+  flex-wrap: wrap;
 }
 
-.search-box input,
-.search-box select {
+.search-box input {
   flex: 1;
+  min-width: 160px;
   padding: 12px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
@@ -267,38 +330,6 @@ h1 {
   cursor: not-allowed;
 }
 
-.categories {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-}
-
-.category-card {
-  padding: 25px;
-  background: #f9fafb;
-  border-radius: 15px;
-  text-align: center;
-  cursor: pointer;
-  transition: 0.3s;
-  border: 2px solid transparent;
-}
-
-.category-card:hover {
-  transform: translateY(-6px);
-  border-color: #2563eb;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.08);
-}
-
-.category-card h3 {
-  margin-bottom: 10px;
-  font-size: 16px;
-}
-
-.category-card p {
-  color: #6b7280;
-  font-size: 14px;
-}
-
 .section {
   margin-top: 50px;
 }
@@ -306,6 +337,10 @@ h1 {
 .section h2 {
   margin-bottom: 20px;
   font-size: 20px;
+}
+
+.muted {
+  color: #6b7280;
 }
 
 .booking-card {
@@ -316,9 +351,10 @@ h1 {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 
-.booking-card button {
+.cancel-btn {
   padding: 6px 12px;
   border-radius: 8px;
   border: none;
@@ -329,11 +365,11 @@ h1 {
   transition: background 0.2s;
 }
 
-.booking-card button:hover:not(:disabled) {
+.cancel-btn:hover:not(:disabled) {
   background: #dc2626;
 }
 
-.booking-card button:disabled {
+.cancel-btn:disabled {
   background: #fca5a5;
   cursor: not-allowed;
 }
@@ -348,14 +384,10 @@ h1 {
 }
 
 @media (max-width: 768px) {
-  .categories {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
   header {
     padding: 15px 20px;
   }
-  
+
   .search-box {
     flex-direction: column;
   }
