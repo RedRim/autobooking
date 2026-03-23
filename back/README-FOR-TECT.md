@@ -1,9 +1,15 @@
 тестовая база данных создана
 Для начала тестирования введите в консоли следующие команды:
 
+В папке back актиивируем тесты:  python3 -m pytest tests/test_api.py -v
 
-Создание окружения venv: source venv/bin/activate
-Запyск тестирования из папки back: pytest -v tests/test_api.py
+
+При неудаче: 
+    Создание окружения venv: python3 -m venv venv
+    Вход в окружение: source venv/bin/activate
+    Установка необходимых расширений: 
+        pip install -r requirements.txt
+    Запyск тестирования из папки back:  python3 -m pytest tests/test_api.py -v
 
 
 
