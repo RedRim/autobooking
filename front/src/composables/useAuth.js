@@ -74,17 +74,18 @@ export function useAuth() {
     }
   };
 
-  const register = async (email, password, companyName = null) => {
+  const register = async (email, password, accountType = 'user') => {
     loading.value = true;
     error.value = null;
 
     try {
       const payload = { email, password };
-      if (companyName) {
-        payload.company_name = companyName;
-      }
+      // accountType:
+      // - 'user'    -> POST /auth/register
+      // - 'company' -> POST /auth/register/company
+      const endpoint = accountType === 'company' ? '/auth/register/company' : '/auth/register';
 
-      const response = await fetch(`${API_URL}/auth/register`, {
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
