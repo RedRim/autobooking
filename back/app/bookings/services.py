@@ -1,4 +1,5 @@
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import and_, select
@@ -17,6 +18,9 @@ from app.bookings.schemas import (
 from app.companies.models import Service, WorkingHours
 
 
+TZ_IRKUTSK = ZoneInfo("Asia/Irkutsk")
+
+
 async def get_available_slots(
     service_id: int, target_date: date, session: AsyncSession
 ) -> list[TimeSlot]:
@@ -30,7 +34,7 @@ async def get_available_slots(
     4. Вычесть из них уже занятые слоты (активные записи на эту услугу).
     5. Вернуть оставшиеся свободные слоты.
 
-    Все временны́е метки возвращаются в UTC.
+    Все временны́е метки возвращаются в часовом поясе Иркутска (Asia/Irkutsk, +08:00).
 
     Args:
         service_id:  ID услуги.
@@ -70,7 +74,7 @@ async def get_available_slots(
         return []
 
     slot_duration = timedelta(minutes=service.duration_minutes)
-    tz = timezone.utc
+    tz = TZ_IRKUTSK
     day_start = datetime.combine(target_date, wh.start_time, tzinfo=tz)
     day_end = datetime.combine(target_date, wh.end_time, tzinfo=tz)
 
@@ -255,7 +259,7 @@ async def get_service_calendar(
     """
     Возвращает двухнедельный календарь слотов для конкретной услуги.
 
-    Период: 14 дней, начиная с понедельника текущей недели (UTC).
+    Период: 14 дней, начиная с понедельника текущей недели (Asia/Irkutsk, +08:00).
     Для каждого дня генерируются все слоты (занятые и свободные).
 
     Алгоритм:
@@ -285,13 +289,13 @@ async def get_service_calendar(
     if not service or not service.is_active:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Услуга не найдена")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(TZ_IRKUTSK)
     today = now.date()
     # Понедельник текущей недели
     period_start = today - timedelta(days=today.weekday())
     period_end = period_start + timedelta(days=13)  # включительно
 
-    tz = timezone.utc
+    tz = TZ_IRKUTSK
     range_start = datetime.combine(period_start, time.min, tzinfo=tz)
     range_end = datetime.combine(period_end, time.max, tzinfo=tz)
 

@@ -2,6 +2,18 @@
   <router-view />
 </template>
 
+<script setup>
+import { onMounted } from 'vue';
+
+import { useAuth } from '@/composables/useAuth';
+
+const { initAuth } = useAuth();
+
+onMounted(() => {
+  initAuth();
+});
+</script>
+
 <style>
 * {
   margin: 0;

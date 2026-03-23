@@ -2,14 +2,14 @@
   <div class="register-page">
     <div class="container">
       <h1>Регистрация клиента</h1>
-      <div class="subtitle">Создайте аккаунт в AutoBooking</div>
+      <div class="subtitle">Создайте аккаунт для записи на услуги</div>
 
       <form @submit.prevent="handleRegister">
         <div class="form-group">
-          <input 
-            v-model="form.email" 
-            type="email" 
-            placeholder="Email (логин)" 
+          <input
+            v-model="form.email"
+            type="email"
+            placeholder="Email"
             required
             :class="{ error: errors.email }"
           />
@@ -17,10 +17,10 @@
         </div>
 
         <div class="form-group">
-          <input 
-            v-model="form.password" 
-            type="password" 
-            placeholder="Пароль" 
+          <input
+            v-model="form.password"
+            type="password"
+            placeholder="Пароль"
             required
             :class="{ error: errors.password }"
           />
@@ -28,18 +28,20 @@
         </div>
 
         <div class="form-group">
-          <input 
-            v-model="form.confirmPassword" 
-            type="password" 
-            placeholder="Повторите пароль" 
+          <input
+            v-model="form.confirmPassword"
+            type="password"
+            placeholder="Повторите пароль"
             required
             :class="{ error: errors.confirmPassword }"
           />
-          <span v-if="errors.confirmPassword" class="error-message">{{ errors.confirmPassword }}</span>
+          <span v-if="errors.confirmPassword" class="error-message">{{
+            errors.confirmPassword
+          }}</span>
         </div>
 
         <button type="submit" :disabled="loading">
-          {{ loading ? 'Создание аккаунта...' : 'Создать аккаунт' }}
+          {{ loading ? 'Регистрация...' : 'Зарегистрироваться' }}
         </button>
       </form>
 
@@ -47,8 +49,13 @@
         {{ serverError }}
       </div>
 
+      <div v-if="serverSuccess" class="success-message">
+        Регистрация успешна! Перенаправляем...
+      </div>
+
       <div class="footer-link">
-        Уже есть аккаунт? <router-link to="/login/user">Войти</router-link>
+        Уже есть аккаунт?
+        <router-link to="/login/user">Войти</router-link>
       </div>
 
       <div class="footer-link">
@@ -59,8 +66,9 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+
 import { useAuth } from '@/composables/useAuth';
 
 const router = useRouter();
@@ -68,15 +76,16 @@ const { register } = useAuth();
 
 const loading = ref(false);
 const serverError = ref('');
+const serverSuccess = ref(false);
 const errors = reactive({ email: '', password: '', confirmPassword: '' });
 
 const form = reactive({
   email: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
 });
 
-const validateForm = () => {
+function validateForm() {
   errors.email = '';
   errors.password = '';
   errors.confirmPassword = '';
@@ -93,8 +102,8 @@ const validateForm = () => {
   if (!form.password) {
     errors.password = 'Введите пароль';
     isValid = false;
-  } else if (form.password.length < 6) {
-    errors.password = 'Пароль должен быть не менее 6 символов';
+  } else if (form.password.length < 4) {
+    errors.password = 'Пароль должен быть не менее 4 символов';
     isValid = false;
   }
 
@@ -104,33 +113,33 @@ const validateForm = () => {
   }
 
   return isValid;
-};
+}
 
-const handleRegister = async () => {
+async function handleRegister() {
   serverError.value = '';
-  
+  serverSuccess.value = false;
+
   if (!validateForm()) return;
 
   loading.value = true;
 
   try {
-    const response = await register(form.email, form.password);
-    
-    localStorage.setItem('access_token', response.access_token);
-    localStorage.setItem('user_role', 'user');
-    
-    router.push('/dashboard/user');
+    await register(form.email, form.password, null);
+    serverSuccess.value = true;
+    setTimeout(() => {
+      router.push('/dashboard/user');
+    }, 800);
   } catch (error) {
     serverError.value = error.message || 'Ошибка регистрации. Попробуйте другой email.';
   } finally {
     loading.value = false;
   }
-};
+}
 </script>
 
 <style scoped>
 .register-page {
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
   background: linear-gradient(135deg, #1e3a8a, #2563eb);
   min-height: 100vh;
   display: flex;
@@ -140,12 +149,12 @@ const handleRegister = async () => {
 }
 
 .container {
-  width: 450px;
+  width: 480px;
   max-width: 95%;
   background: white;
   padding: 40px;
   border-radius: 20px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 h1 {
@@ -157,7 +166,7 @@ h1 {
 .subtitle {
   text-align: center;
   color: #6b7280;
-  margin-bottom: 30px;
+  margin-bottom: 25px;
 }
 
 .form-group {
@@ -216,7 +225,17 @@ button:disabled {
   color: #dc2626;
   padding: 10px;
   border-radius: 8px;
-  margin-bottom: 15px;
+  margin-top: 15px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.success-message {
+  background: #dcfce7;
+  color: #166534;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 15px;
   font-size: 14px;
   text-align: center;
 }

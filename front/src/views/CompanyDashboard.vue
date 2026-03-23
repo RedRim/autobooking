@@ -3,90 +3,102 @@
     <header>
       <div class="logo">AutoBooking</div>
       <div class="nav">
-        <button @click="router.push('/company/services')">Услуги</button>
-        <button @click="router.push('/company/calendar')">Календарь</button>
-        <button @click="handleLogout">Выйти</button>
+        <button type="button" @click="router.push('/company/services')">Услуги</button>
+        <button type="button" @click="router.push('/company/calendar')">Календарь</button>
+        <button type="button" @click="handleLogout">Выйти</button>
       </div>
     </header>
 
     <div class="container">
       <h2 class="page-title">Записи клиентов</h2>
 
-      <div v-if="loading" class="loading">Загрузка...</div>
-      <div v-else-if="error" class="error-message">{{ error }}</div>
-      <div v-else-if="!companyId" class="empty-state">
-        Компания не найдена. Обновите страницу или создайте компанию в настройках.
-        <br>
-        <button class="retry-btn" @click="initCompanyData">Повторить</button>
+      <div v-if="needsCompany" class="create-company-card">
+        <h3>Создайте карточку компании</h3>
+        <p class="muted">
+          После регистрации владельца нужно заполнить данные компании — так вы появитесь в поиске.
+        </p>
+        <form class="company-form" @submit.prevent="createCompany">
+          <input v-model="createForm.name" type="text" placeholder="Название *" required />
+          <textarea
+            v-model="createForm.description"
+            rows="2"
+            placeholder="Описание"
+          ></textarea>
+          <input v-model="createForm.category" type="text" placeholder="Категория" />
+          <input v-model="createForm.city" type="text" placeholder="Город" />
+          <input v-model="createForm.address" type="text" placeholder="Адрес" />
+          <input v-model="createForm.phone" type="text" placeholder="Телефон" />
+          <button type="submit" class="primary" :disabled="creatingCompany">
+            {{ creatingCompany ? 'Создание...' : 'Создать компанию' }}
+          </button>
+        </form>
+        <div v-if="createError" class="error-message">{{ createError }}</div>
       </div>
-      <div v-else-if="bookings.length === 0" class="empty-state">
-        Пока нет записей
-      </div>
 
-      <div v-else class="bookings-list">
-        <div 
-          v-for="booking in bookings" 
-          :key="booking.id" 
-          class="booking-card"
-        >
-          <div class="booking-header">
-            <div>
-              <h3>Клиент #{{ booking.user_id }}</h3>
-              <div>ID записи: #{{ booking.id }} • Услуга #{{ booking.service_id }}</div>
-            </div>
-            <div :class="['status', getStatusClass(booking.status)]">
-              {{ getStatusText(booking.status) }}
-            </div>
-          </div>
+      <template v-else>
+        <div v-if="loading" class="loading">Загрузка...</div>
+        <div v-else-if="error" class="error-message">{{ error }}</div>
+        <div v-else-if="bookings.length === 0" class="empty-state">Пока нет записей</div>
 
-          <div class="booking-info">
-            <div>
-              <strong>Дата:</strong><br>
-              {{ formatDate(booking.start_at) }}
+        <div v-else class="bookings-list">
+          <div v-for="booking in bookings" :key="booking.id" class="booking-card">
+            <div class="booking-header">
+              <div>
+                <h3>Клиент #{{ booking.user_id }}</h3>
+                <div>Запись #{{ booking.id }} · Услуга #{{ booking.service_id }}</div>
+              </div>
+              <div :class="['status', statusClass(booking.status)]">
+                {{ statusText(booking.status) }}
+              </div>
             </div>
-            <div>
-              <strong>Время:</strong><br>
-              {{ formatTime(booking.start_at) }}
-            </div>
-            <div>
-              <strong>Статус:</strong><br>
-              {{ getStatusText(booking.status) }}
-            </div>
-            <div v-if="booking.notes">
-              <strong>Заметка:</strong><br>
-              {{ booking.notes }}
-            </div>
-            <div>
-              <strong>Создано:</strong><br>
-              {{ formatDate(booking.created_at) }}
-            </div>
-          </div>
 
-          <div class="booking-actions">
-            <button 
-              v-if="booking.status === 'pending'" 
-              class="confirm-btn" 
-              @click="confirmBooking(booking.id)"
-              :disabled="processingId === booking.id"
-            >
-              {{ processingId === booking.id ? 'Обработка...' : 'Подтвердить' }}
-            </button>
-            <button 
-              class="contact-btn" 
-              @click="contactClient(booking.user_id)"
-            >
-              Связаться
-            </button>
+            <div class="booking-info">
+              <div>
+                <strong>Дата:</strong>
+                <br />
+                {{ formatDate(booking.start_at) }}
+              </div>
+              <div>
+                <strong>Время:</strong>
+                <br />
+                {{ formatTime(booking.start_at) }}
+              </div>
+              <div v-if="booking.notes">
+                <strong>Заметка:</strong>
+                <br />
+                {{ booking.notes }}
+              </div>
+              <div>
+                <strong>Создано:</strong>
+                <br />
+                {{ formatDate(booking.created_at) }}
+              </div>
+            </div>
+
+            <div class="booking-actions">
+              <button
+                v-if="booking.status === 'pending'"
+                type="button"
+                class="confirm-btn"
+                :disabled="processingId === booking.id"
+                @click="confirmBooking(booking.id)"
+              >
+                {{ processingId === booking.id ? 'Обработка...' : 'Подтвердить' }}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+
+import { API_URL } from '@/config';
+import { formatApiError } from '@/utils/apiError';
 import { useAuth } from '@/composables/useAuth';
 
 const router = useRouter();
@@ -97,74 +109,122 @@ const error = ref('');
 const processingId = ref(null);
 const bookings = ref([]);
 const companyId = ref(null);
+const needsCompany = ref(false);
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const creatingCompany = ref(false);
+const createError = ref('');
+const createForm = reactive({
+  name: '',
+  description: '',
+  category: '',
+  city: '',
+  address: '',
+  phone: '',
+});
 
 onMounted(async () => {
   await initCompanyData();
 });
 
-// 🔹 Инициализация: получаем данные пользователя и компании
-const initCompanyData = async () => {
+async function initCompanyData() {
   loading.value = true;
   error.value = '';
+  needsCompany.value = false;
 
   try {
-    // 1. Проверяем авторизацию
     if (!auth.isAuthenticated()) {
       router.push('/login/company');
       return;
     }
 
-    // 2. Загружаем company_id через новый эндпоинт
-    await loadCompanyId();
+    await loadMyCompany();
 
-    // 3. Если company_id найден — загружаем записи
+    if (needsCompany.value) {
+      loading.value = false;
+      return;
+    }
+
     if (companyId.value) {
       await loadBookings();
     }
   } catch (err) {
-    console.error('Ошибка инициализации:', err);
     error.value = err.message || 'Ошибка загрузки данных';
   } finally {
     loading.value = false;
   }
-};
+}
 
-// 🔹 Получаем ID компании текущего владельца
-const loadCompanyId = async () => {
+async function loadMyCompany() {
+  const token = localStorage.getItem('access_token');
+  const response = await fetch(`${API_URL}/owner/company`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (response.status === 404) {
+    needsCompany.value = true;
+    companyId.value = null;
+    return;
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(formatApiError(data));
+  }
+
+  companyId.value = data.id;
+  needsCompany.value = false;
+}
+
+async function createCompany() {
+  creatingCompany.value = true;
+  createError.value = '';
+
   try {
     const token = localStorage.getItem('access_token');
-    
-    // Запрашиваем компанию через новый эндпоинт
-    const response = await fetch(`${API_URL}/owner/me/company`, {
+    const body = {
+      name: createForm.name.trim(),
+      description: createForm.description.trim() || null,
+      category: createForm.category.trim() || null,
+      city: createForm.city.trim() || null,
+      address: createForm.address.trim() || null,
+      phone: createForm.phone.trim() || null,
+    };
+
+    const response = await fetch(`${API_URL}/owner/company`, {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
+      body: JSON.stringify(body),
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      companyId.value = data.id;
-      return;
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(formatApiError(data));
     }
 
-    if (response.status === 404) {
-      error.value = 'Компания не найдена. Возможно, она ещё не создана.';
-      return;
-    }
-
-    throw new Error('Не удалось получить данные компании');
+    companyId.value = data.id;
+    needsCompany.value = false;
+    createForm.name = '';
+    createForm.description = '';
+    createForm.category = '';
+    createForm.city = '';
+    createForm.address = '';
+    createForm.phone = '';
+    await loadBookings();
   } catch (err) {
-    console.warn('Ошибка получения company_id:', err);
-    throw err;
+    createError.value = err.message;
+  } finally {
+    creatingCompany.value = false;
   }
-};
+}
 
-// 🔹 Загрузка записей компании
-const loadBookings = async () => {
+async function loadBookings() {
   if (!companyId.value) {
-    error.value = 'ID компании не найден';
+    error.value = 'Компания не найдена';
     return;
   }
 
@@ -173,115 +233,85 @@ const loadBookings = async () => {
 
   try {
     const token = localStorage.getItem('access_token');
-    const response = await fetch(
-      `${API_URL}/owner/company/${companyId.value}/bookings`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await fetch(`${API_URL}/owner/company/${companyId.value}/bookings`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json().catch(() => ({}));
 
-    if (response.status === 403) {
-      throw new Error('Нет доступа к этой компании. Проверьте права владельца.');
-    }
-    if (response.status === 404) {
-      throw new Error('Компания или записи не найдены');
-    }
     if (!response.ok) {
-      throw new Error('Ошибка загрузки записей');
+      throw new Error(formatApiError(data));
     }
 
-    bookings.value = await response.json();
+    bookings.value = Array.isArray(data) ? data : [];
   } catch (err) {
     error.value = err.message;
+    bookings.value = [];
   } finally {
     loading.value = false;
   }
-};
+}
 
-// 🔹 Подтверждение записи
-const confirmBooking = async (bookingId) => {
+async function confirmBooking(bookingId) {
   processingId.value = bookingId;
 
   try {
     const token = localStorage.getItem('access_token');
-    const response = await fetch(
-      `${API_URL}/owner/bookings/${bookingId}/confirm`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await fetch(`${API_URL}/owner/bookings/${bookingId}/confirm`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.detail || 'Не удалось подтвердить запись');
+      throw new Error(formatApiError(data));
     }
 
-    // Обновляем статус локально
-    const booking = bookings.value.find(b => b.id === bookingId);
-    if (booking) {
-      booking.status = 'confirmed';
-    }
+    const booking = bookings.value.find((b) => b.id === bookingId);
+    if (booking) booking.status = 'confirmed';
   } catch (err) {
     error.value = err.message;
   } finally {
     processingId.value = null;
   }
-};
+}
 
-// 🔹 Связь с клиентом (заглушка)
-const contactClient = (userId) => {
-  alert(`Связаться с клиентом #${userId}\n(Функция в разработке)`);
-};
-
-// 🔹 Выход из системы
-const handleLogout = () => {
+function handleLogout() {
   auth.logout();
-  router.push('/');
-};
+}
 
-// 🔹 Утилиты для отображения
-const getStatusClass = (status) => {
-  const map = {
-    pending: 'active',
-    confirmed: 'completed',
-    cancelled: 'cancelled',
-  };
+function statusClass(status) {
+  const map = { pending: 'active', confirmed: 'completed', cancelled: 'cancelled' };
   return map[status] || '';
-};
+}
 
-const getStatusText = (status) => {
+function statusText(status) {
   const map = {
-    pending: 'Активна',
-    confirmed: 'Завершена',
+    pending: 'Ожидает подтверждения',
+    confirmed: 'Подтверждена',
     cancelled: 'Отменена',
   };
   return map[status] || status;
-};
+}
 
-const formatDate = (dateString) => {
+function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString('ru-RU', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   });
-};
+}
 
-const formatTime = (dateString) => {
+function formatTime(dateString) {
   return new Date(dateString).toLocaleTimeString('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
   });
-};
+}
 </script>
 
 <style scoped>
 .dashboard-page {
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
   background: #f5f7fa;
   min-height: 100vh;
 }
@@ -331,6 +361,57 @@ header {
   color: #1f2937;
 }
 
+.create-company-card {
+  background: white;
+  padding: 30px;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+}
+
+.create-company-card h3 {
+  margin-bottom: 10px;
+  color: #111827;
+}
+
+.muted {
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+.company-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.company-form input,
+.company-form textarea {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.primary {
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: #16a34a;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.primary:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .loading,
 .empty-state {
   text-align: center;
@@ -338,22 +419,7 @@ header {
   color: #6b7280;
   background: white;
   border-radius: 20px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-}
-
-.retry-btn {
-  margin-top: 15px;
-  padding: 8px 20px;
-  border-radius: 8px;
-  border: none;
-  background: #16a34a;
-  color: white;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.retry-btn:hover {
-  background: #15803d;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
 }
 
 .error-message {
@@ -361,7 +427,7 @@ header {
   color: #dc2626;
   padding: 15px;
   border-radius: 12px;
-  margin-bottom: 20px;
+  margin-top: 16px;
   text-align: center;
 }
 
@@ -369,14 +435,14 @@ header {
   background: white;
   padding: 25px;
   border-radius: 20px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
   margin-bottom: 20px;
   transition: 0.3s;
 }
 
 .booking-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 15px 35px rgba(0,0,0,0.12);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
 }
 
 .booking-header {
@@ -404,8 +470,8 @@ header {
 }
 
 .status.active {
-  background: #dcfce7;
-  color: #166534;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .status.completed {
@@ -421,7 +487,7 @@ header {
 .booking-info {
   margin-top: 15px;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
   font-size: 14px;
   color: #6b7280;
@@ -437,25 +503,12 @@ header {
   gap: 10px;
 }
 
-.booking-actions button {
+.confirm-btn {
   padding: 8px 15px;
   border-radius: 8px;
   border: none;
   cursor: pointer;
   font-weight: 500;
-  transition: background 0.2s;
-}
-
-.contact-btn {
-  background: #16a34a;
-  color: white;
-}
-
-.contact-btn:hover {
-  background: #15803d;
-}
-
-.confirm-btn {
   background: #e0f2fe;
   color: #15803d;
 }

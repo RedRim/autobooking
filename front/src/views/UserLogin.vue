@@ -1,15 +1,15 @@
 <template>
   <div class="login-page">
     <div class="container">
-      <h1>Вход</h1>
-      <div class="subtitle">Добро пожаловать в AutoBooking</div>
+      <h1>Вход для клиента</h1>
+      <div class="subtitle">Запись на услуги через AutoBooking</div>
 
       <form @submit.prevent="handleLogin">
         <div class="form-group">
-          <input 
-            v-model="form.email" 
-            type="email" 
-            placeholder="Email" 
+          <input
+            v-model="form.email"
+            type="email"
+            placeholder="Email"
             required
             :class="{ error: errors.email }"
           />
@@ -17,10 +17,10 @@
         </div>
 
         <div class="form-group">
-          <input 
-            v-model="form.password" 
-            type="password" 
-            placeholder="Пароль" 
+          <input
+            v-model="form.password"
+            type="password"
+            placeholder="Пароль"
             required
             :class="{ error: errors.password }"
           />
@@ -37,7 +37,8 @@
       </div>
 
       <div class="footer-link">
-        Нет аккаунта? <router-link to="/register/user">Зарегистрироваться</router-link>
+        Нет аккаунта?
+        <router-link to="/register/user">Зарегистрироваться</router-link>
       </div>
 
       <div class="footer-link">
@@ -48,12 +49,14 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
-import { useRouter } from 'vue-router';
+import { reactive, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+
 import { useAuth } from '@/composables/useAuth';
 
 const router = useRouter();
-const { login } = useAuth();
+const route = useRoute();
+const { login, user } = useAuth();
 
 const loading = ref(false);
 const serverError = ref('');
@@ -61,10 +64,10 @@ const errors = reactive({ email: '', password: '' });
 
 const form = reactive({
   email: '',
-  password: ''
+  password: '',
 });
 
-const validateForm = () => {
+function validateForm() {
   errors.email = '';
   errors.password = '';
   let isValid = true;
@@ -80,39 +83,48 @@ const validateForm = () => {
   if (!form.password) {
     errors.password = 'Введите пароль';
     isValid = false;
-  } else if (form.password.length < 6) {
-    errors.password = 'Пароль должен быть не менее 6 символов';
+  } else if (form.password.length < 4) {
+    errors.password = 'Пароль должен быть не менее 4 символов';
     isValid = false;
   }
 
   return isValid;
-};
+}
 
-const handleLogin = async () => {
+async function handleLogin() {
   serverError.value = '';
-  
+
   if (!validateForm()) return;
 
   loading.value = true;
 
   try {
-    const response = await login(form.email, form.password);
-    
-    localStorage.setItem('access_token', response.access_token);
-    localStorage.setItem('user_role', 'user');
-    
-    router.push('/dashboard/user');
+    await login(form.email, form.password);
+    const role = localStorage.getItem('user_role');
+
+    if (role === 'company') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user_role');
+      user.value = null;
+      serverError.value =
+        'Этот аккаунт зарегистрирован как владелец компании. Войдите через форму для компании.';
+      return;
+    }
+
+    const raw = typeof route.query.redirect === 'string' ? route.query.redirect : '';
+    const safe = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/dashboard/user';
+    router.push(safe);
   } catch (error) {
     serverError.value = error.message || 'Ошибка входа. Проверьте данные.';
   } finally {
     loading.value = false;
   }
-};
+}
 </script>
 
 <style scoped>
 .login-page {
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
   background: linear-gradient(135deg, #1e3a8a, #2563eb);
   min-height: 100vh;
   display: flex;
@@ -126,7 +138,7 @@ const handleLogin = async () => {
   background: white;
   padding: 40px;
   border-radius: 20px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 h1 {
@@ -197,7 +209,7 @@ button:disabled {
   color: #dc2626;
   padding: 10px;
   border-radius: 8px;
-  margin-bottom: 15px;
+  margin-top: 15px;
   font-size: 14px;
   text-align: center;
 }

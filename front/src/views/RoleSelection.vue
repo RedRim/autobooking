@@ -8,17 +8,21 @@
 
       <div class="role-selection">
         <!-- Карточка Клиента -->
-        <div class="role-card" @click="selectRole('client')">
+        <div class="role-card">
           <h2>Я клиент</h2>
           <p>Хочу записаться на услугу: салон, барбершоп, массаж, авто-сервис и многое другое</p>
-          <button class="buy-btn" @click.stop="navigateTo('/login/user')">Найти услуги</button>
+          <button type="button" class="buy-btn" @click.stop="navigateTo('/search')">
+            Найти услуги
+          </button>
         </div>
 
         <!-- Карточка Владельца -->
-        <div class="role-card" @click="selectRole('business')">
+        <div class="role-card">
           <h2>Я владелец бизнеса</h2>
           <p>Хочу добавить свою компанию и принимать онлайн-записи клиентов</p>
-          <button class="sell-btn" @click.stop="navigateTo('/login/company')">Добавить компанию</button>
+          <button type="button" class="sell-btn" @click.stop="navigateTo('/login/company')">
+            Добавить компанию
+          </button>
         </div>
       </div>
 
@@ -33,10 +37,6 @@
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
-
-const selectRole = (role) => {
-  console.log(`Выбрана роль: ${role}`);
-};
 
 const navigateTo = (path) => {
   router.push(path);
