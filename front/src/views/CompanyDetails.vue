@@ -59,11 +59,20 @@
             >
               <strong>{{ svc.name }}</strong>
               <span>{{ formatPrice(svc.price) }} · {{ svc.duration_minutes }} мин</span>
+              <!-- <div v-if="svc.description" class="service-description">
+                {{ svc.description }}
+              </div> -->
             </div>
           </div>
         </div>
 
         <div v-if="selectedService" class="section">
+
+          <div v-if="selectedService.description" class="selected-service-description">
+            <strong>Описание:</strong>
+            <div class="service-description">{{ selectedService.description }}</div>
+          </div>
+
           <h2>Выберите время</h2>
 
           <p v-if="!isLoggedIn" class="hint">
@@ -483,6 +492,27 @@ header {
 .service-card span {
   color: #6b7280;
   font-size: 14px;
+}
+
+.service-description {
+  margin-top: 10px;
+  color: #374151;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.selected-service-description {
+  margin-bottom: 20px;
+  padding: 15px;
+  border-radius: 12px;
+  background: #f9fafb;
+  color: #6b7280;
+}
+
+.selected-service-description strong {
+  color: #374151;
+  display: block;
+  margin-bottom: 8px;
 }
 
 .hint {
