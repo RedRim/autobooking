@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import User
 from app.auth.schemas import LoginSchema, RegisterSchema, TokenResponse, UserResponse
 from app.auth.services import authenticate_user, create_access_token, get_current_user, register_user
+from app.auth.models import UserRole
 from app.database import get_session
 
 router = APIRouter(
@@ -13,11 +14,23 @@ router = APIRouter(
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-async def register(
+async def register_user_endpoint(
     data: RegisterSchema,
     session: AsyncSession = Depends(get_session),
 ) -> TokenResponse:
-    user = await register_user(data, session)
+    """Регистрация обычного пользователя (роль `user`)."""
+    user = await register_user(data, session, role=UserRole.user)
+    token = create_access_token(user.id, user.email, user.role.value)
+    return TokenResponse(access_token=token)
+
+
+@router.post("/register/company", response_model=TokenResponse, status_code=201)
+async def register_company_endpoint(
+    data: RegisterSchema,
+    session: AsyncSession = Depends(get_session),
+) -> TokenResponse:
+    """Регистрация владельца компании (роль `company`)."""
+    user = await register_user(data, session, role=UserRole.company)
     token = create_access_token(user.id, user.email, user.role.value)
     return TokenResponse(access_token=token)
 

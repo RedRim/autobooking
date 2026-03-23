@@ -31,17 +31,14 @@ def create_access_token(user_id: int, email: str, role: str) -> str:
     return jwt.encode(payload, cfg.jwt_secret, algorithm=cfg.jwt_algorithm)
 
 
-async def register_user(data: RegisterSchema, session: AsyncSession) -> User:
+async def register_user(data: RegisterSchema, session: AsyncSession, role: UserRole) -> User:
     existing = await session.scalar(select(User).where(User.email == data.email))
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email уже занят")
 
-
-    role = UserRole.company if data.company_name else UserRole.user
     user = User(
         email=data.email,
         hashed_password=hash_password(data.password),
-        company_name=data.company_name,
         role=role,
     )
     session.add(user)
