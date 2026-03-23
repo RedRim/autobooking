@@ -96,9 +96,69 @@
               </span>
             </div>
             <div class="service-actions">
-              <button type="button" class="edit-btn" @click="startEdit(svc)">Изменить</button>
-              <button type="button" class="delete-btn" @click="removeService(svc.id)">
-                Удалить
+              <button
+                type="button"
+                class="icon-btn edit-btn"
+                aria-label="Изменить"
+                @click="startEdit(svc)"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M3 17.25V21h3.75L19.81 7.94l-3.75-3.75L3 17.25Z"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M14.06 4.19 17.81 7.94"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="icon-btn delete-btn"
+                aria-label="Удалить"
+                @click="removeService(svc.id)"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M3 6h18"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M8 6V4h8v2"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M6 6l1 16h10l1-16"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M10 11v6"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M14 11v6"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
               </button>
             </div>
           </div>
@@ -554,24 +614,46 @@ textarea {
   font-weight: 600;
 }
 
+.service-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .service-actions button {
-  padding: 6px 10px;
+  padding: 0;
   border-radius: 8px;
   border: none;
   cursor: pointer;
-  margin-left: 5px;
-  font-size: 13px;
-  transition: background 0.2s;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0;
+  border: 1px solid transparent;
 }
 
 .edit-btn {
-  background: #facc15;
-  color: #1f2937;
+  background: transparent;
+  color: #2563eb; /* синяя ручка */
 }
 
 .delete-btn {
-  background: #ef4444;
-  color: white;
+  background: transparent;
+  color: #ef4444; /* красная урна */
+  border-color: transparent;
+}
+
+.edit-btn:hover,
+.delete-btn:hover {
+  background: #f3f4f6;
 }
 
 @media (max-width: 768px) {
