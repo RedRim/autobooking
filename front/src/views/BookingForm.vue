@@ -27,6 +27,10 @@
           <br />
           <strong>Длительность:</strong>
           {{ service?.duration_minutes }} минут
+          <div v-if="service?.description" class="service-description">
+            <strong>Описание:</strong>
+            <div class="service-description-text">{{ service.description }}</div>
+          </div>
         </div>
 
         <div class="date-picker">
@@ -327,6 +331,16 @@ header {
 
 .service-info strong {
   color: #374151;
+}
+
+.service-description {
+  margin-top: 10px;
+}
+
+.service-description-text {
+  margin-top: 6px;
+  color: #6b7280;
+  line-height: 1.4;
 }
 
 .date-picker {

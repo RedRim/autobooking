@@ -124,7 +124,7 @@ async function handleRegister() {
   loading.value = true;
 
   try {
-    await register(form.email, form.password, null);
+    await register(form.email, form.password, 'user');
     serverSuccess.value = true;
     setTimeout(() => {
       router.push('/dashboard/user');

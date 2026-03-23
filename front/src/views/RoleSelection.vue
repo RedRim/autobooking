@@ -21,7 +21,7 @@
           <h2>Я владелец бизнеса</h2>
           <p>Хочу добавить свою компанию и принимать онлайн-записи клиентов</p>
           <button type="button" class="sell-btn" @click.stop="navigateTo('/login/company')">
-            Добавить компанию
+            Войти
           </button>
         </div>
       </div>

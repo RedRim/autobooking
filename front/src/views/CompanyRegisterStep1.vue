@@ -11,17 +11,6 @@
       <form @submit.prevent="handleRegister">
         <div class="form-group">
           <input 
-            v-model="form.companyName" 
-            type="text" 
-            placeholder="Название компании" 
-            required
-            :class="{ error: errors.companyName }"
-          />
-          <span v-if="errors.companyName" class="error-message">{{ errors.companyName }}</span>
-        </div>
-
-        <div class="form-group">
-          <input 
             v-model="form.email" 
             type="email" 
             placeholder="Email (логин)" 
@@ -88,26 +77,19 @@ const { register } = useAuth();
 const loading = ref(false);
 const serverError = ref('');
 const serverSuccess = ref(false);
-const errors = reactive({ companyName: '', email: '', password: '', confirmPassword: '' });
+const errors = reactive({ email: '', password: '', confirmPassword: '' });
 
 const form = reactive({
-  companyName: '',
   email: '',
   password: '',
   confirmPassword: ''
 });
 
 const validateForm = () => {
-  errors.companyName = '';
   errors.email = '';
   errors.password = '';
   errors.confirmPassword = '';
   let isValid = true;
-
-  if (!form.companyName) {
-    errors.companyName = 'Введите название компании';
-    isValid = false;
-  }
 
   if (!form.email) {
     errors.email = 'Введите email';
@@ -142,8 +124,8 @@ const handleRegister = async () => {
   loading.value = true;
 
   try {
-    // Вызываем API регистрации с company_name
-    await register(form.email, form.password, form.companyName);
+    // Регистрируем владельца компании. Название компании задаётся позже на дашборде.
+    await register(form.email, form.password, 'company');
 
     serverSuccess.value = true;
     
