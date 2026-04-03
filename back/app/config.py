@@ -37,7 +37,15 @@ class Settings(BaseSettings):
     """
     Общие настройки приложения
     """
+
     api_key: str
+    # Список origin фронта через запятую (для CORS). Пример: http://localhost:8080,http://127.0.0.1:8080
+    cors_origins: str = (
+        "http://localhost,http://127.0.0.1,"
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "http://localhost:8080,http://127.0.0.1:8080,"
+        "http://localhost:80,http://127.0.0.1:80"
+    )
 
     class Config:
         env_file = ".env"
