@@ -39,13 +39,11 @@ class Settings(BaseSettings):
     """
 
     api_key: str
-    # Список origin фронта через запятую (для CORS). Пример: http://localhost:8080,http://127.0.0.1:8080
-    cors_origins: str = (
-        "http://localhost,http://127.0.0.1,"
-        "http://localhost:5173,http://127.0.0.1:5173,"
-        "http://localhost:8080,http://127.0.0.1:8080,"
-        "http://localhost:80,http://127.0.0.1:80"
-    )
+    # Дополнительные origin для CORS (через запятую). Обязательно для прода: https://ваш-домен.ru
+    # С localhost-ориджинами сливается автоматически (см. main.py).
+    cors_origins: str = ""
+    # Опционально: одно regex-выражение для origin (например поддомены): https://.*\\.example\\.ru
+    cors_origin_regex: str | None = None
 
     class Config:
         env_file = ".env"
