@@ -10,3 +10,6 @@ ENV/
 env/
 *.db
 .DS_Store
+data/*.db
+*.db
+.venv/

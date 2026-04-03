@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, date, time
 from app.main import app
 from app.database import get_session, engine, Base
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.pool import StaticPool
 from sqlalchemy import select
 from app.auth.models import User, UserRole
 from app.companies.models import Company, Service, WorkingHours
@@ -16,12 +17,17 @@ import asyncio
 # Конфигурация тестовой БД
 # ─────────────────────────────────────────────────────────────────────────────
 
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5433/autobooking-test"
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 @pytest_asyncio.fixture(scope="function")
 async def test_engine():
     """Создаёт тестовый движок БД"""
-    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+    engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine

@@ -1,50 +1,10 @@
 services:
-  db:
-    image: postgres:15
-    restart: always
-    container_name: autobooking_db
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - autobooking_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  db_test:
-    image: postgres:15
-    container_name: autobooking_db_test
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: autobooking-test 
-    ports:
-      - "5433:5432"  
-    networks:
-      - autobooking_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 3s
-      timeout: 3s
-      retries: 3
-
   app:
     build: .
     container_name: autobooking_app
     command: uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --reload
     ports:
       - "${PORT}:${PORT}"
-    depends_on:
-      db:
-        condition: service_healthy
     env_file:
       - .env
     networks:
@@ -52,9 +12,7 @@ services:
     volumes:
       - ./app:/app/app
       - ./migrations:/app/migrations
-
-volumes:
-  postgres_data:
+      - ./data:/app/data
 
 networks:
   autobooking_network:

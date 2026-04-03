@@ -7,9 +7,15 @@ from sqlalchemy import Integer
 
 from app.config import get_config
 
-DATABASE_URL = get_config().db.dsn
+_cfg = get_config()
+_cfg.db.ensure_sqlite_parent_exists()
+DATABASE_URL = _cfg.db.dsn
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    connect_args={"check_same_thread": False},
+)
 async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 

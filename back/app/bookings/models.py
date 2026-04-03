@@ -64,11 +64,11 @@ class Booking(Base):
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[BookingStatus] = mapped_column(
-        Enum(BookingStatus, name="bookingstatus"),
+        Enum(BookingStatus, name="bookingstatus", native_enum=False),
         default=BookingStatus.pending,
         nullable=False,
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True), server_default=func.current_timestamp(), nullable=False
     )
