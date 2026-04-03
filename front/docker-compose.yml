@@ -1,0 +1,18 @@
+# Только фронтенд: сборка Vue (Vite) + nginx со статикой.
+# Запуск из каталога front/: docker compose up -d --build
+#
+# API по умолчанию http://localhost:8000 (как в src/config.js).
+# Если бэкенд на другом хосте/через /api:
+#   VITE_API_URL=https://example.ru/api docker compose up -d --build
+
+services:
+  front:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    container_name: autobooking_front
+    ports:
+      - "${FRONT_PORT:-8080}:80"
+    restart: unless-stopped
