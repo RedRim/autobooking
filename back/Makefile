@@ -2,7 +2,7 @@
 
 include .env
 
-DOCKER_COMP  = docker-compose
+DOCKER_COMP  = docker compose
 DB_CONT      = $(DOCKER_COMP) exec db
 APP_CONT     = $(DOCKER_COMP) exec app
 
