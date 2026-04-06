@@ -25,7 +25,7 @@
         <input
           v-model="selectedCategory"
           type="text"
-          placeholder="Категория (точное совпадение, например Барбершоп)"
+          placeholder="Категория"
           @change="performSearch"
         />
         <input
