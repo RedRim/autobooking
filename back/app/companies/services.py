@@ -102,7 +102,7 @@ async def list_companies(
     if search:
         q = q.where(Company.name.ilike(f"%{search}%"))
     if category:
-        q = q.where(Company.category == category)
+        q = q.where(Company.name.ilike(f"%{category}%"))
     if city:
         q = q.where(Company.city.ilike(f"%{city}%"))
     result = await session.scalars(q)
