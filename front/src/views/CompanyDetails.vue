@@ -30,10 +30,13 @@
               {{ company?.address || '—' }}
             </div>
             <div class="info-box">
-              <strong>График</strong>
-              <br />
-              {{ scheduleSummary }}
-            </div>
+  <strong>График</strong>
+  <div class="schedule-list">
+    <div v-for="(day, idx) in scheduleList" :key="idx" class="schedule-item">
+      {{ day }}
+    </div>
+  </div>
+</div>
             <div class="info-box">
               <strong>Телефон</strong>
               <br />
@@ -185,12 +188,12 @@ const loginLink = computed(() => ({
   query: { redirect: route.fullPath },
 }));
 
-const scheduleSummary = computed(() => {
+const scheduleList = computed(() => {
   const wh = company.value?.working_hours;
-  if (!wh || wh.length === 0) return 'Расписание не задано';
+  if (!wh || wh.length === 0) return ['Расписание не задано'];
 
   const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-  const parts = [...wh]
+  return [...wh]
     .sort((a, b) => a.day_of_week - b.day_of_week)
     .map((d) => {
       const label = dayNames[d.day_of_week] ?? d.day_of_week;
@@ -199,7 +202,6 @@ const scheduleSummary = computed(() => {
       const end = formatTimeOnly(d.end_time);
       return `${label}: ${start}–${end}`;
     });
-  return parts.join('; ');
 });
 
 onMounted(async () => {
@@ -630,5 +632,18 @@ header {
   header {
     padding: 15px 20px;
   }
+
+  .schedule-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.schedule-item {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.4;
+}
 }
 </style>
