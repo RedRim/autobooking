@@ -15,6 +15,27 @@
       <template v-else>
         <div class="company-card">
           <div class="company-header">
+
+            <div class="company-header">
+  <!-- Новый блок логотипа -->
+  <div class="company-logo">
+    <img 
+      v-if="company?.logo_url" 
+      :src="company.logo_url" 
+      :alt="company?.name"
+      @error="handleLogoError"
+    />
+    <div v-else class="logo-placeholder">
+      {{ company?.name?.charAt(0) || '🏢' }}
+    </div>
+  </div>
+  
+  <div>
+    <h1>{{ company?.name }}</h1>
+    <div class="muted">{{ company?.category || 'Категория не указана' }}</div>
+  </div>
+</div>
+
             <div>
               <h1>{{ company?.name }}</h1>
               <div class="muted">{{ company?.category || 'Категория не указана' }}</div>
@@ -203,6 +224,11 @@ const scheduleList = computed(() => {
       return `${label}: ${start}–${end}`;
     });
 });
+
+function handleLogoError(e) {
+  // Скрываем битое изображение, покажется placeholder
+  e.target.style.display = 'none';
+}
 
 onMounted(async () => {
   if (!companyId.value) {
@@ -428,6 +454,55 @@ header {
   color: #111827;
 }
 
+/* Стили для контейнера логотипа */
+.company-logo {
+  margin-right: 20px;
+  flex-shrink: 0;
+}
+
+.company-logo img {
+  width: 80px;
+  height: 80px;
+  border-radius: 16px;
+  object-fit: cover;
+  border: 2px solid #e5e7eb;
+  display: block;
+}
+
+/* Заглушка, если логотип не загружен */
+.logo-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #2563eb, #1e40af);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 600;
+  border: 2px solid #dbeafe;
+}
+
+/* Адаптив для мобильных */
+@media (max-width: 768px) {
+  .company-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .company-logo {
+    margin-right: 0;
+  }
+  
+  .company-logo img,
+  .logo-placeholder {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+  }
+}
 .muted {
   color: #6b7280;
 }
