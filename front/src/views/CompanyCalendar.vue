@@ -54,6 +54,16 @@
   @input="updatePreview"
 />
 
+          <label>Длительность записи (мин)</label>
+          <input
+            v-model.number="settings.duration"
+            type="number"
+            min="5"
+            step="5"
+            placeholder="30"
+            @input="updatePreview"
+          />
+
           <button type="button" class="primary" :disabled="saving" @click="saveSchedule">
             {{ saving ? 'Сохранение...' : 'Сохранить расписание' }}
           </button>
