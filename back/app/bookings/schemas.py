@@ -43,7 +43,8 @@ class BookingResponse(BaseModel):
 
     Поля:
         id          — уникальный ID записи.
-        user_id     — ID клиента.
+    user_id     — ID клиента.
+    user_full_name — ФИО клиента для отображения в интерфейсе компании.
         service_id  — ID услуги.
         company_id  — ID компании (для быстрой фильтрации).
         start_at    — UTC-время начала сеанса.
@@ -55,6 +56,7 @@ class BookingResponse(BaseModel):
 
     id: int
     user_id: int
+    user_full_name: str | None = None
     service_id: int
     company_id: int
     start_at: datetime

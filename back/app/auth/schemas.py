@@ -8,6 +8,8 @@ from app.auth.models import UserRole
 class RegisterSchema(BaseModel):
     email: EmailStr
     password: str
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 class LoginSchema(BaseModel):
@@ -18,6 +20,8 @@ class LoginSchema(BaseModel):
 class UserResponse(BaseModel):
     id: int
     email: EmailStr
+    first_name: str | None
+    last_name: str | None
     role: UserRole
     created_at: datetime
 

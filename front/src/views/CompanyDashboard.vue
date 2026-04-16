@@ -118,8 +118,8 @@
           <div v-for="booking in bookings" :key="booking.id" class="booking-card">
             <div class="booking-header">
               <div>
-                <h3>Клиент #{{ booking.user_id }}</h3>
-                <div>Запись #{{ booking.id }} · Услуга #{{ booking.service_id }}</div>
+                <h3>Клиент: {{ booking.user_full_name || `#${booking.user_id}` }}</h3>
+                <div>Услуга: {{ serviceTitle(booking.service_id) }}</div>
               </div>
               <div :class="['status', statusClass(booking.status)]">
                 {{ statusText(booking.status) }}
@@ -183,6 +183,7 @@ const processingId = ref(null);
 const bookings = ref([]);
 const companyId = ref(null);
 const needsCompany = ref(false);
+const serviceNames = ref({});
 
 const creatingRequest = ref(false);
 const createError = ref('');
@@ -412,12 +413,38 @@ async function loadBookings() {
       throw new Error(formatApiError(data));
     }
     bookings.value = Array.isArray(data) ? data : [];
+    await loadCompanyServicesMeta();
   } catch (err) {
     error.value = err.message;
     bookings.value = [];
   } finally {
     loading.value = false;
   }
+}
+
+async function loadCompanyServicesMeta() {
+  if (!companyId.value) return;
+
+  try {
+    // Загружаем названия услуг, чтобы в списке записей не показывать service_id.
+    const res = await auth.authFetch(`/companies/${companyId.value}/services`, {}, { redirectOn401: false });
+    if (!res.ok) return;
+    const services = await res.json().catch(() => []);
+    const map = {};
+    if (Array.isArray(services)) {
+      services.forEach((s) => {
+        if (s?.id !== undefined) map[s.id] = s?.name || null;
+      });
+    }
+    serviceNames.value = map;
+  } catch {
+    /* ignore */
+  }
+}
+
+function serviceTitle(serviceId) {
+  if (!serviceNames.value) return `#${serviceId}`;
+  return serviceNames.value[serviceId] || `#${serviceId}`;
 }
 
 async function confirmBooking(bookingId) {
