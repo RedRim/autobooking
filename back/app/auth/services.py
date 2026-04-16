@@ -21,6 +21,13 @@ _MIN_PASSWORD_LENGTH = 8
 _MIN_PASSWORD_SCORE = 3
 
 
+def _clean_optional_name(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
@@ -65,6 +72,8 @@ async def register_user(data: RegisterSchema, session: AsyncSession, role: UserR
 
     user = User(
         email=data.email,
+        first_name=_clean_optional_name(data.first_name),
+        last_name=_clean_optional_name(data.last_name),
         hashed_password=hash_password(data.password),
         role=role,
     )

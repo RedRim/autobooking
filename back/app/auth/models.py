@@ -21,6 +21,8 @@ class User(Base):
     __tablename__ = "users"
 
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="userrole", native_enum=True),
