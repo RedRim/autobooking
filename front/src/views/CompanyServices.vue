@@ -246,8 +246,8 @@ function validateForm() {
     ok = false;
   }
 
-  if (!form.duration || form.duration < 5) {
-    errors.duration = 'Длительность от 5 минут';
+  if (!form.duration || form.duration <= 5 || form.duration >= 180) {
+    errors.duration = 'Длительность должна быть больше 5 и меньше 180 минут';
     ok = false;
   }
 
