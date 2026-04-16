@@ -193,3 +193,18 @@ async def confirm_booking(
         Authorization: Bearer <token>
     """
     return await svc.confirm_booking(booking_id, user, session)
+
+
+@router.post("/owner/bookings/{booking_id}/cancel", response_model=BookingResponse)
+async def cancel_booking_by_owner(
+    booking_id: int,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> BookingResponse:
+    """
+    Отменяет запись клиента владельцем компании (переводит статус в 'cancelled').
+
+    Требует авторизацию; пользователь должен быть владельцем компании,
+    к которой относится запись.
+    """
+    return await svc.cancel_booking_by_owner(booking_id, user, session)

@@ -110,9 +110,37 @@
 
       <template v-else>
         <h2 class="section-title">Записи клиентов</h2>
+        <div class="controls-row">
+          <div class="sort-controls">
+            <label for="bookingSort">Сортировка:</label>
+            <select id="bookingSort" v-model="sortKey">
+              <option value="startAsc">Дата записи ↑</option>
+              <option value="startDesc">Дата записи ↓</option>
+            </select>
+          </div>
+
+          <div class="status-filters">
+            <div class="status-filters-title">Показывать:</div>
+            <label class="checkbox-item">
+              <input type="checkbox" v-model="showPending" />
+              Ожидает подтверждения
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" v-model="showConfirmed" />
+              Подтверждена
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" v-model="showCancelled" />
+              Отменена
+            </label>
+          </div>
+        </div>
+
         <div v-if="loading" class="loading">Загрузка...</div>
         <div v-else-if="error" class="error-message">{{ error }}</div>
-        <div v-else-if="bookings.length === 0" class="empty-state">Пока нет записей</div>
+        <div v-else-if="sortedBookings.length === 0" class="empty-state">
+          Нет записей по выбранным фильтрам
+        </div>
 
         <div v-else class="bookings-list">
           <div v-for="booking in sortedBookings" :key="booking.id" class="booking-card">
@@ -159,6 +187,15 @@
               >
                 {{ processingId === booking.id ? 'Обработка...' : 'Подтвердить' }}
               </button>
+              <button
+                v-if="booking.status === 'pending' || booking.status === 'confirmed'"
+                type="button"
+                class="cancel-btn"
+                :disabled="cancellingId === booking.id"
+                @click="cancelBookingByOwner(booking.id)"
+              >
+                {{ cancellingId === booking.id ? 'Отмена...' : 'Отменить заявку' }}
+              </button>
             </div>
           </div>
         </div>
@@ -180,15 +217,16 @@ const auth = useAuth();
 const loading = ref(true);
 const error = ref('');
 const processingId = ref(null);
+const cancellingId = ref(null);
 const bookings = ref([]);
 const companyId = ref(null);
 const needsCompany = ref(false);
 const serviceNames = ref({});
 
-function statusPriority(status) {
-  const map = { pending: 0, confirmed: 1, cancelled: 2 };
-  return map[status] ?? 3;
-}
+const sortKey = ref('startAsc');
+const showPending = ref(true);
+const showConfirmed = ref(true);
+const showCancelled = ref(false);
 
 function toMs(dateString) {
   const t = new Date(dateString).getTime();
@@ -196,32 +234,30 @@ function toMs(dateString) {
 }
 
 const sortedBookings = computed(() => {
-  const now = Date.now();
-  return [...(bookings.value || [])].sort((a, b) => {
-    const ap = statusPriority(a.status);
-    const bp = statusPriority(b.status);
-    if (ap !== bp) return ap - bp;
+  const list = [...(bookings.value || [])].filter((b) => {
+    if (b.status === 'pending') return showPending.value;
+    if (b.status === 'confirmed') return showConfirmed.value;
+    if (b.status === 'cancelled') return showCancelled.value;
+    return false;
+  });
 
-    const aUpcoming = toMs(a.start_at) >= now;
-    const bUpcoming = toMs(b.start_at) >= now;
-    if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+  const cmp = (a, b) => {
+    // Отменённые всегда в конце.
+    const aCancelled = a.status === 'cancelled';
+    const bCancelled = b.status === 'cancelled';
+    if (aCancelled !== bCancelled) return aCancelled ? 1 : -1;
 
-    // Для будущих: ближайшие первыми.
-    // Для прошедших: последние первыми.
-    if (aUpcoming) {
-      const aDate = toMs(a.start_at);
-      const bDate = toMs(b.start_at);
-      if (aDate !== bDate) return aDate - bDate;
-    } else {
-      const aDate = toMs(a.start_at);
-      const bDate = toMs(b.start_at);
-      if (aDate !== bDate) return bDate - aDate;
+    const as = toMs(a.start_at);
+    const bs = toMs(b.start_at);
+    if (as !== bs) {
+      if (sortKey.value === 'startDesc') return bs - as;
+      return as - bs;
     }
 
-    const aCreated = toMs(a.created_at);
-    const bCreated = toMs(b.created_at);
-    return bCreated - aCreated;
-  });
+    return toMs(b.created_at) - toMs(a.created_at);
+  };
+
+  return list.sort(cmp);
 });
 
 const creatingRequest = ref(false);
@@ -505,6 +541,27 @@ async function confirmBooking(bookingId) {
   }
 }
 
+async function cancelBookingByOwner(bookingId) {
+  if (!confirm('Отменить заявку клиента?')) return;
+
+  cancellingId.value = bookingId;
+  try {
+    const response = await auth.authFetch(`/owner/bookings/${bookingId}/cancel`, {
+      method: 'POST',
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(formatApiError(data));
+    }
+    const booking = bookings.value.find((item) => item.id === bookingId);
+    if (booking) booking.status = 'cancelled';
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    cancellingId.value = null;
+  }
+}
+
 function handleLogout() {
   auth.logout();
 }
@@ -599,6 +656,60 @@ header {
 .section-title {
   margin-bottom: 24px;
   color: #1f2937;
+}
+
+.controls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sort-controls label {
+  color: #374151;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.sort-controls select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+  background: white;
+}
+
+.status-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: white;
+  min-width: 320px;
+}
+
+.status-filters-title {
+  color: #374151;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #374151;
+  font-size: 14px;
 }
 
 .create-company-card {
@@ -767,6 +878,17 @@ header {
   font-weight: 500;
   background: #e0f2fe;
   color: #15803d;
+}
+
+.cancel-btn {
+  padding: 8px 15px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  background: #fee2e2;
+  color: #991b1b;
+  margin-left: 10px;
 }
 
 @media (max-width: 768px) {

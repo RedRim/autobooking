@@ -273,6 +273,32 @@ async def confirm_booking(booking_id: int, user: User, session: AsyncSession) ->
     return booking
 
 
+async def cancel_booking_by_owner(booking_id: int, user: User, session: AsyncSession) -> Booking:
+    """
+    Отменяет запись клиента владельцем компании (переводит статус в 'cancelled').
+
+    Доступно только владельцу компании, к которой относится запись.
+    Отменить можно любую запись, кроме уже отменённой.
+    """
+    from app.companies.models import Company
+
+    booking = await session.get(Booking, booking_id)
+    if not booking:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Запись не найдена")
+
+    company = await session.get(Company, booking.company_id)
+    if not company or company.owner_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа")
+
+    if booking.status == BookingStatus.cancelled:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Запись уже отменена")
+
+    booking.status = BookingStatus.cancelled
+    await session.commit()
+    await session.refresh(booking)
+    return booking
+
+
 async def get_service_calendar(
     service_id: int, session: AsyncSession
 ) -> ServiceCalendarResponse:
