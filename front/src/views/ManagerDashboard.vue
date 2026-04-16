@@ -42,6 +42,10 @@
             <div class="label">Название</div>
             <div>{{ selectedRequest.name }}</div>
           </div>
+          <div class="row">
+            <div class="label">Телефон</div>
+            <div>{{ selectedRequest.phone }}</div>
+          </div>
 
           <form class="edit-form" @submit.prevent="saveRequest">
             <label>
@@ -113,6 +117,7 @@ const formMessage = ref('');
 const editForm = reactive({
   category: '',
   city: '',
+  phone: '',
 });
 
 const categoryLoading = ref(false);
@@ -178,6 +183,7 @@ function selectRequest(item) {
   selectedRequest.value = item;
   editForm.category = item.requested_category || '';
   editForm.city = item.city || '';
+  editForm.phone = item.phone || '';
   formError.value = '';
   formMessage.value = '';
   categoryOptions.value = [];
@@ -195,6 +201,7 @@ async function saveRequest() {
       body: JSON.stringify({
         category: editForm.category.trim(),
         city: editForm.city.trim(),
+        phone: editForm.phone.trim(),
       }),
     });
     const data = await response.json().catch(() => ({}));
@@ -225,6 +232,7 @@ async function approveRequest() {
         body: JSON.stringify({
           category: editForm.category.trim(),
           city: editForm.city.trim(),
+          phone: editForm.phone.trim(),
         }),
       },
     );

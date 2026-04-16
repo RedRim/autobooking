@@ -40,6 +40,7 @@ class CompanyCreationRequest(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     requested_category: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     city: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     status: Mapped[CompanyRequestStatus] = mapped_column(
         Enum(CompanyRequestStatus, name="companyrequeststatus", native_enum=True),
         nullable=False,

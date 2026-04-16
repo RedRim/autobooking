@@ -79,12 +79,12 @@ export function useAuth() {
     }
   };
 
-  const register = async (email, password, accountType = 'user') => {
+  const register = async (email, password, accountType = 'user', extraPayload = {}) => {
     loading.value = true;
     error.value = null;
 
     try {
-      const payload = { email, password };
+      const payload = { email, password, ...extraPayload };
       // accountType:
       // - 'user'    -> POST /auth/register
       // - 'company' -> POST /auth/register/company

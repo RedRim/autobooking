@@ -27,6 +27,7 @@
             <div><strong>Название:</strong> {{ companyRequest.name }}</div>
             <div><strong>Категория:</strong> {{ companyRequest.requested_category }}</div>
             <div><strong>Город:</strong> {{ companyRequest.city }}</div>
+            <div><strong>Телефон:</strong> {{ companyRequest.phone }}</div>
           </div>
           <p class="muted" v-if="companyRequest.status === 'pending'">
             Менеджер проверит заявку и создаст карточку компании после одобрения.
@@ -90,6 +91,12 @@
                 </button>
               </div>
             </div>
+            <input
+              v-model="createForm.phone"
+              type="tel"
+              placeholder="Телефон компании *"
+              required
+            />
             <button type="submit" class="primary" :disabled="creatingRequest">
               {{ creatingRequest ? 'Отправка...' : 'Отправить заявку' }}
             </button>
@@ -180,6 +187,7 @@ const createForm = reactive({
   name: '',
   category: '',
   city: '',
+  phone: '',
 });
 const companyRequest = ref(null);
 
@@ -264,6 +272,7 @@ async function createCompanyRequest() {
         name: createForm.name.trim(),
         category: createForm.category.trim(),
         city: createForm.city.trim(),
+        phone: createForm.phone.trim(),
       }),
     });
     const data = await response.json().catch(() => ({}));
@@ -274,6 +283,7 @@ async function createCompanyRequest() {
     createForm.name = '';
     createForm.category = '';
     createForm.city = '';
+    createForm.phone = '';
     categoryOptions.value = [];
   } catch (err) {
     createError.value = err.message || 'Не удалось отправить заявку';
@@ -550,6 +560,8 @@ header {
 }
 
 .company-form input {
+  width: 100%;
+  box-sizing: border-box;
   padding: 12px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
@@ -594,6 +606,8 @@ header {
 }
 
 .primary {
+  width: 100%;
+  box-sizing: border-box;
   padding: 12px;
   border-radius: 10px;
   border: none;
