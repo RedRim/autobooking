@@ -6,6 +6,7 @@ from app.auth.services import get_current_user
 from app.companies import services as svc
 from app.companies.schemas import (
     CategoryResponse,
+    CityResponse,
     CompanyCreate,
     CompanyRequestResponse,
     CompanyRequestUpdate,
@@ -86,9 +87,18 @@ async def get_company_services(
 @router.get("/categories", response_model=list[CategoryResponse])
 async def search_categories(
     search: str | None = Query(None, description="Поиск категории по префиксу"),
+    limit: int = Query(50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
 ) -> list[CategoryResponse]:
-    return await svc.list_categories(session, search)
+    categories = await svc.list_categories(session, search)
+    return categories[:limit]
+
+
+@router.get("/cities", response_model=list[CityResponse])
+async def search_cities(
+    search: str | None = Query(None, description="Поиск города РФ по префиксу"),
+) -> list[CityResponse]:
+    return [CityResponse(name=name) for name in svc.list_russian_cities(search)]
 
 
 # ── Компании (для владельца) ─────────────────────────────────────────────────
