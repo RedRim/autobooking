@@ -142,6 +142,15 @@ button {
   background: #15803d;
 }
 
+.manage-btn {
+  background: #7c3aed;
+  color: white;
+}
+
+.manage-btn:hover {
+  background: #6d28d9;
+}
+
 .footer {
   margin-top: 40px;
   font-size: 14px;

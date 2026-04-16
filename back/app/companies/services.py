@@ -1,10 +1,36 @@
+from datetime import datetime, timezone
+
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User, UserRole
-from app.companies.models import Company, Service, WorkingHours
-from app.companies.schemas import CompanyCreate, CompanyUpdate, ServiceCreate, ServiceUpdate, WorkingHoursCreate
+from app.companies.models import (
+    Category,
+    Company,
+    CompanyCreationRequest,
+    CompanyRequestStatus,
+    Service,
+    WorkingHours,
+)
+from app.companies.schemas import (
+    CompanyCreate,
+    CompanyRequestUpdate,
+    CompanyUpdate,
+    ServiceCreate,
+    ServiceUpdate,
+    WorkingHoursCreate,
+)
+
+
+def _clean_required(value: str, field_name: str) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Поле '{field_name}' не может быть пустым",
+        )
+    return cleaned
 
 
 def require_company_role(user: User) -> None:
@@ -24,6 +50,14 @@ def require_company_role(user: User) -> None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Только для владельцев компаний",
+        )
+
+
+def require_manager_role(user: User) -> None:
+    if user.role != UserRole.manager:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Только для менеджеров",
         )
 
 
@@ -102,36 +136,96 @@ async def list_companies(
     if search:
         q = q.where(Company.name.ilike(f"%{search}%"))
     if category:
-        q = q.where(Company.name.ilike(f"%{category}%"))
+        q = q.join(Category, Company.category_id == Category.id).where(
+            Category.name.ilike(f"%{category}%")
+        )
     if city:
         q = q.where(Company.city.ilike(f"%{city}%"))
     result = await session.scalars(q)
     return list(result.all())
 
 
-async def create_company(data: CompanyCreate, user: User, session: AsyncSession) -> Company:
-    """
-    Создаёт новую компанию, привязанную к текущему пользователю.
+async def get_category_by_name(name: str, session: AsyncSession) -> Category | None:
+    normalized = name.strip().lower()
+    if not normalized:
+        return None
+    return await session.scalar(select(Category).where(func.lower(Category.name) == normalized))
 
-    Требует роль 'company'. Компания создаётся активной по умолчанию.
+
+async def get_or_create_category(name: str, session: AsyncSession) -> Category:
+    normalized = _clean_required(name, "category")
+    existing = await get_category_by_name(normalized, session)
+    if existing:
+        return existing
+    category = Category(name=normalized)
+    session.add(category)
+    await session.flush()
+    return category
+
+
+async def list_categories(session: AsyncSession, search: str | None, limit: int = 10) -> list[Category]:
+    q = select(Category).order_by(Category.name.asc()).limit(limit)
+    if search:
+        q = q.where(Category.name.ilike(f"{search.strip()}%"))
+    result = await session.scalars(q)
+    return list(result.all())
+
+
+async def get_my_company_request(user: User, session: AsyncSession) -> CompanyCreationRequest:
+    require_company_role(user)
+    request = await session.scalar(
+        select(CompanyCreationRequest)
+        .where(CompanyCreationRequest.owner_id == user.id)
+        .order_by(CompanyCreationRequest.created_at.desc())
+    )
+    if not request:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
+    return request
+
+
+async def create_company_request(
+    data: CompanyCreate, user: User, session: AsyncSession
+) -> CompanyCreationRequest:
+    """
+    Создаёт новую заявку на регистрацию компании.
 
     Args:
         data:    данные из тела запроса (CompanyCreate).
         user:    текущий аутентифицированный пользователь-владелец.
         session: сессия БД.
 
-    Returns:
-        Созданный объект Company.
-
-    Raises:
-        HTTPException 403: если пользователь не имеет роль 'company'.
     """
     require_company_role(user)
-    company = Company(owner_id=user.id, **data.model_dump())
-    session.add(company)
+
+    existing_company = await session.scalar(select(Company).where(Company.owner_id == user.id))
+    if existing_company:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Компания для этого владельца уже создана",
+        )
+
+    pending_request = await session.scalar(
+        select(CompanyCreationRequest).where(
+            CompanyCreationRequest.owner_id == user.id,
+            CompanyCreationRequest.status == CompanyRequestStatus.pending,
+        )
+    )
+    if pending_request:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="У вас уже есть заявка на модерации",
+        )
+
+    request = CompanyCreationRequest(
+        owner_id=user.id,
+        name=_clean_required(data.name, "name"),
+        requested_category=_clean_required(data.category, "category"),
+        city=_clean_required(data.city, "city"),
+    )
+    session.add(request)
     await session.commit()
-    await session.refresh(company)
-    return company
+    await session.refresh(request)
+    return request
 
 
 async def update_company(
@@ -183,6 +277,96 @@ async def get_my_company(user: User, session: AsyncSession) -> Company:
     if not company:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Компания не найдена")
     return company
+
+
+async def list_company_requests(
+    user: User, session: AsyncSession, status_filter: CompanyRequestStatus | None
+) -> list[CompanyCreationRequest]:
+    require_manager_role(user)
+    q = select(CompanyCreationRequest).order_by(CompanyCreationRequest.created_at.desc())
+    if status_filter:
+        q = q.where(CompanyCreationRequest.status == status_filter)
+    result = await session.scalars(q)
+    return list(result.all())
+
+
+async def get_company_request_or_404(request_id: int, session: AsyncSession) -> CompanyCreationRequest:
+    request = await session.get(CompanyCreationRequest, request_id)
+    if not request:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Заявка не найдена")
+    return request
+
+
+async def update_company_request(
+    request_id: int,
+    data: CompanyRequestUpdate,
+    user: User,
+    session: AsyncSession,
+) -> CompanyCreationRequest:
+    require_manager_role(user)
+    request = await get_company_request_or_404(request_id, session)
+    if request.status != CompanyRequestStatus.pending:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Можно редактировать только заявки в статусе pending",
+        )
+
+    if data.city is not None:
+        request.city = _clean_required(data.city, "city")
+    if data.category is not None:
+        request.requested_category = _clean_required(data.category, "category")
+
+    await session.commit()
+    await session.refresh(request)
+    return request
+
+
+async def approve_company_request(
+    request_id: int,
+    data: CompanyRequestUpdate,
+    user: User,
+    session: AsyncSession,
+) -> CompanyCreationRequest:
+    require_manager_role(user)
+    request = await get_company_request_or_404(request_id, session)
+    if request.status != CompanyRequestStatus.pending:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Заявка уже обработана",
+        )
+
+    if data.city is not None:
+        request.city = _clean_required(data.city, "city")
+    if data.category is not None:
+        request.requested_category = _clean_required(data.category, "category")
+
+    category = await get_or_create_category(request.requested_category, session)
+
+    existing_company = await session.scalar(select(Company).where(Company.owner_id == request.owner_id))
+    if existing_company:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="У владельца уже есть активная компания",
+        )
+
+    company = Company(
+        owner_id=request.owner_id,
+        name=request.name,
+        city=request.city,
+        category_id=category.id,
+        is_active=True,
+    )
+    session.add(company)
+    await session.flush()
+
+    request.status = CompanyRequestStatus.approved
+    request.company_id = company.id
+    request.approved_by_id = user.id
+    request.approved_at = datetime.now(timezone.utc)
+
+    await session.commit()
+    await session.refresh(request)
+    return request
 
 
 async def create_service(
