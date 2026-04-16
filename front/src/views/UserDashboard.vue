@@ -256,7 +256,7 @@ header {
 }
 
 .user-info {
-  font-size: 14px;
+  font-size: 19px;
   opacity: 0.9;
 }
 

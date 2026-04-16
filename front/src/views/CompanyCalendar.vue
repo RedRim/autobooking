@@ -44,6 +44,16 @@
           <label>Конец</label>
           <input v-model="settings.endTime" type="time" @change="updatePreview" />
 
+          <label>Длительность записи (мин)</label>
+          <input
+            v-model.number="settings.duration"
+            type="number"
+            min="5"
+            step="5"
+            placeholder="30"
+            @input="updatePreview"
+          />
+
           <button type="button" class="primary" :disabled="saving" @click="saveSchedule">
             {{ saving ? 'Сохранение...' : 'Сохранить расписание' }}
           </button>
@@ -84,10 +94,6 @@ const { logout } = useAuth();
 const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 const workingDays = ref([0, 1, 2, 3, 4]);
-const settings = reactive({
-  startTime: '09:00',
-  endTime: '18:00',
-});
 
 const previewSlots = ref([]);
 const saving = ref(false);
@@ -96,6 +102,35 @@ const saveSuccess = ref(false);
 
 const companyId = ref(null);
 const pageError = ref('');
+
+const settings = reactive({
+  startTime: '09:00',
+  endTime: '18:00',
+  duration: 30, // ← значение по умолчанию
+});
+
+function updatePreview() {
+  previewSlots.value = [];
+  if (workingDays.value.length === 0) return;
+
+  const interval = Math.max(5, Number(settings.duration) || 30);
+  const [startHour, startMin] = settings.startTime.split(':').map(Number);
+  const [endHour, endMin] = settings.endTime.split(':').map(Number);
+
+  const startMinutes = startHour * 60 + startMin;
+  const endMinutes = endHour * 60 + endMin;
+
+  if (startMinutes >= endMinutes) return;
+
+  let current = startMinutes;
+  while (current + interval <= endMinutes) {
+    const hours = Math.floor(current / 60);
+    const mins = current % 60;
+    const timeStr = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+    previewSlots.value.push(timeStr);
+    current += interval;
+  }
+}
 
 onMounted(async () => {
   await loadCompanySchedule();
@@ -160,28 +195,6 @@ function toggleDay(index) {
     workingDays.value.splice(pos, 1);
   }
   updatePreview();
-}
-
-function updatePreview() {
-  previewSlots.value = [];
-
-  if (workingDays.value.length === 0) return;
-
-  const interval = 30;
-  const [startHour, startMin] = settings.startTime.split(':').map(Number);
-  const [endHour, endMin] = settings.endTime.split(':').map(Number);
-
-  const startMinutes = startHour * 60 + startMin;
-  const endMinutes = endHour * 60 + endMin;
-
-  let current = startMinutes;
-  while (current + interval <= endMinutes) {
-    const hours = Math.floor(current / 60);
-    const mins = current % 60;
-    const timeStr = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
-    previewSlots.value.push(timeStr);
-    current += interval;
-  }
 }
 
 async function saveSchedule() {
