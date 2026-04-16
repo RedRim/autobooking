@@ -60,12 +60,26 @@
             </li>
           </ul>
         </div>
-        <input
-          v-model="selectedCity"
-          type="text"
-          placeholder="Город"
-          @change="performSearch"
-        />
+        <div class="city-input-wrapper">
+          <input
+            v-model="selectedCity"
+            type="text"
+            placeholder="Город"
+            @input="onCityInput"
+            @focus="onCityFocus"
+            @blur="handleCityBlur"
+            @keyup.enter="performSearch"
+          />
+          <ul v-if="showCityDropdown && citySuggestions.length > 0" class="suggestions-dropdown">
+            <li
+              v-for="city in citySuggestions"
+              :key="city.name"
+              @mousedown="selectCitySuggestion(city)"
+            >
+              <strong>{{ city.name }}</strong>
+            </li>
+          </ul>
+        </div>
       </div>
 
       <h2 class="results-title">
@@ -131,6 +145,9 @@ let debounceTimer = null;
 const categorySuggestions = ref([]);
 const showCategoryDropdown = ref(false);
 let categoryDebounceTimer = null;
+const citySuggestions = ref([]);
+const showCityDropdown = ref(false);
+let cityDebounceTimer = null;
 
 function onSearchInput() {
   showDropdown.value = true;
@@ -203,6 +220,53 @@ function selectCategorySuggestion(category) {
 function handleCategoryBlur() {
   setTimeout(() => {
     showCategoryDropdown.value = false;
+  }, 150);
+}
+
+function onCityInput() {
+  showCityDropdown.value = true;
+  clearTimeout(cityDebounceTimer);
+  cityDebounceTimer = setTimeout(() => {
+    fetchCitySuggestions(selectedCity.value.trim());
+  }, 300);
+}
+
+async function fetchCitySuggestions(query = '') {
+  const params = new URLSearchParams();
+  if (query) {
+    params.set('search', query);
+  }
+  try {
+    const response = await fetch(`${API_URL}/cities?${params.toString()}`);
+    if (response.ok) {
+      const data = await response.json().catch(() => []);
+      citySuggestions.value = Array.isArray(data) ? data : [];
+    } else {
+      citySuggestions.value = [];
+    }
+  } catch {
+    citySuggestions.value = [];
+  }
+}
+
+async function onCityFocus() {
+  showCityDropdown.value = true;
+  if (citySuggestions.value.length > 0) {
+    return;
+  }
+  await fetchCitySuggestions(selectedCity.value.trim());
+}
+
+function selectCitySuggestion(city) {
+  selectedCity.value = city.name;
+  showCityDropdown.value = false;
+  citySuggestions.value = [];
+  performSearch();
+}
+
+function handleCityBlur() {
+  setTimeout(() => {
+    showCityDropdown.value = false;
   }, 150);
 }
 
@@ -356,7 +420,14 @@ header {
   position: relative;
 }
 
-.category-input-wrapper input {
+.city-input-wrapper {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
+}
+
+.category-input-wrapper input,
+.city-input-wrapper input {
   width: 100%;
 }
 

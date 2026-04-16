@@ -67,7 +67,29 @@
               </div>
             </div>
 
-            <input v-model="createForm.city" type="text" placeholder="Город *" required />
+            <div class="city-field">
+              <input
+                v-model="createForm.city"
+                type="text"
+                placeholder="Город *"
+                required
+                @input="onCityInput"
+                @focus="onCityFocus"
+                @blur="closeCitySuggestions"
+              />
+              <div v-if="cityLoading" class="hint">Поиск городов...</div>
+              <div v-else-if="cityOptions.length > 0" class="suggestions">
+                <button
+                  v-for="option in cityOptions"
+                  :key="option.name"
+                  type="button"
+                  class="suggestion-item"
+                  @mousedown.prevent="pickCity(option.name)"
+                >
+                  {{ option.name }}
+                </button>
+              </div>
+            </div>
             <button type="submit" class="primary" :disabled="creatingRequest">
               {{ creatingRequest ? 'Отправка...' : 'Отправить заявку' }}
             </button>
@@ -164,6 +186,9 @@ const companyRequest = ref(null);
 const categoryLoading = ref(false);
 const categoryOptions = ref([]);
 let categoryTimer = null;
+const cityLoading = ref(false);
+const cityOptions = ref([]);
+let cityTimer = null;
 
 onMounted(async () => {
   await initCompanyData();
@@ -268,6 +293,17 @@ function closeSuggestions() {
   }, 100);
 }
 
+function pickCity(value) {
+  createForm.city = value;
+  cityOptions.value = [];
+}
+
+function closeCitySuggestions() {
+  window.setTimeout(() => {
+    cityOptions.value = [];
+  }, 100);
+}
+
 function onCategoryInput() {
   if (categoryTimer) {
     clearTimeout(categoryTimer);
@@ -304,6 +340,45 @@ async function loadCategorySuggestions(query = '') {
     categoryOptions.value = Array.isArray(data) ? data : [];
   } finally {
     categoryLoading.value = false;
+  }
+}
+
+function onCityInput() {
+  if (cityTimer) {
+    clearTimeout(cityTimer);
+  }
+  cityTimer = setTimeout(() => {
+    loadCitySuggestions(createForm.city.trim());
+  }, 250);
+}
+
+async function onCityFocus() {
+  if (cityOptions.value.length > 0) {
+    return;
+  }
+  await loadCitySuggestions(createForm.city.trim());
+}
+
+async function loadCitySuggestions(query = '') {
+  cityLoading.value = true;
+  try {
+    const params = new URLSearchParams();
+    if (query) {
+      params.set('search', query);
+    }
+    const response = await auth.authFetch(
+      `/cities?${params.toString()}`,
+      {},
+      { redirectOn401: false },
+    );
+    if (!response.ok) {
+      cityOptions.value = [];
+      return;
+    }
+    const data = await response.json().catch(() => []);
+    cityOptions.value = Array.isArray(data) ? data : [];
+  } finally {
+    cityLoading.value = false;
   }
 }
 
@@ -482,6 +557,10 @@ header {
 }
 
 .category-field {
+  position: relative;
+}
+
+.city-field {
   position: relative;
 }
 

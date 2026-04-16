@@ -1,4 +1,7 @@
 from datetime import datetime, timezone
+import csv
+from functools import lru_cache
+from pathlib import Path
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -31,6 +34,25 @@ def _clean_required(value: str, field_name: str) -> str:
             detail=f"Поле '{field_name}' не может быть пустым",
         )
     return cleaned
+
+
+@lru_cache(maxsize=1)
+def _russian_city_names() -> tuple[str, ...]:
+    csv_path = Path(__file__).resolve().parent / "data" / "city.csv"
+    if not csv_path.exists():
+        return tuple()
+
+    with csv_path.open("r", encoding="utf-8", newline="") as file:
+        sample = file.read(4096)
+        file.seek(0)
+        delimiter = ";" if sample.count(";") > sample.count(",") else ","
+        reader = csv.DictReader(file, delimiter=delimiter)
+        names: set[str] = set()
+        for row in reader:
+            name = str(row.get("city", "")).strip()
+            if name:
+                names.add(name)
+    return tuple(sorted(names))
 
 
 def require_company_role(user: User) -> None:
@@ -169,6 +191,15 @@ async def list_categories(session: AsyncSession, search: str | None) -> list[Cat
         q = q.where(Category.name.ilike(f"{search.strip()}%"))
     result = await session.scalars(q)
     return list(result.all())
+
+
+def list_russian_cities(search: str | None) -> list[str]:
+    names = _russian_city_names()
+    if search:
+        query = search.strip().lower()
+        if query:
+            names = tuple(name for name in names if name.lower().startswith(query))
+    return list(names)
 
 
 async def get_my_company_request(user: User, session: AsyncSession) -> CompanyCreationRequest:

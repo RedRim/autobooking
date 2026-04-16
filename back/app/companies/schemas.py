@@ -211,6 +211,10 @@ class CategoryResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CityResponse(BaseModel):
+    name: str
+
+
 class CompanyRequestUpdate(BaseModel):
     city: str | None = None
     category: str | None = None
