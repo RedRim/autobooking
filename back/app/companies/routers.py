@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
 from app.auth.services import get_current_user
 from app.companies import services as svc
 from app.companies.schemas import (
+    CategoryResponse,
     CompanyCreate,
+    CompanyRequestResponse,
+    CompanyRequestUpdate,
     CompanyResponse,
     CompanyShortResponse,
     CompanyUpdate,
@@ -80,6 +83,15 @@ async def get_company_services(
     return [s for s in company.services if s.is_active]
 
 
+@router.get("/categories", response_model=list[CategoryResponse])
+async def search_categories(
+    search: str | None = Query(None, description="Поиск категории по префиксу"),
+    limit: int = Query(10, ge=1, le=30),
+    session: AsyncSession = Depends(get_session),
+) -> list[CategoryResponse]:
+    return await svc.list_categories(session, search, limit)
+
+
 # ── Компании (для владельца) ─────────────────────────────────────────────────
 
 @router.get("/owner/company", response_model=CompanyResponse)
@@ -100,12 +112,20 @@ async def get_my_company(
     return await svc.get_my_company(user, session)
 
 
-@router.post("/owner/company", response_model=CompanyResponse, status_code=201)
-async def create_company(
+@router.get("/owner/company-request", response_model=CompanyRequestResponse)
+async def get_my_company_request(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> CompanyRequestResponse:
+    return await svc.get_my_company_request(user, session)
+
+
+@router.post("/owner/company-request", response_model=CompanyRequestResponse, status_code=201)
+async def create_company_request(
     data: CompanyCreate,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> CompanyResponse:
+) -> CompanyRequestResponse:
     """
     Регистрирует новую компанию для текущего владельца.
 
@@ -121,7 +141,7 @@ async def create_company(
             "phone": "+7 999 123-45-67"
         }
     """
-    return await svc.create_company(data, user, session)
+    return await svc.create_company_request(data, user, session)
 
 
 @router.put("/owner/company/{company_id}", response_model=CompanyResponse)
@@ -145,6 +165,56 @@ async def update_company(
         Body: {"is_active": false}
     """
     return await svc.update_company(company_id, data, user, session)
+
+
+@router.get("/manager/company-requests", response_model=list[CompanyRequestResponse])
+async def list_company_requests(
+    request_status: str | None = Query(
+        None, alias="status", description="Статус заявки: pending|approved|rejected"
+    ),
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[CompanyRequestResponse]:
+    status_filter = None
+    if request_status:
+        try:
+            status_filter = svc.CompanyRequestStatus(request_status)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Некорректный статус заявки",
+            ) from exc
+    return await svc.list_company_requests(user, session, status_filter)
+
+
+@router.get("/manager/company-requests/{request_id}", response_model=CompanyRequestResponse)
+async def get_company_request(
+    request_id: int,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> CompanyRequestResponse:
+    svc.require_manager_role(user)
+    return await svc.get_company_request_or_404(request_id, session)
+
+
+@router.put("/manager/company-requests/{request_id}", response_model=CompanyRequestResponse)
+async def update_company_request(
+    request_id: int,
+    data: CompanyRequestUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> CompanyRequestResponse:
+    return await svc.update_company_request(request_id, data, user, session)
+
+
+@router.post("/manager/company-requests/{request_id}/approve", response_model=CompanyRequestResponse)
+async def approve_company_request(
+    request_id: int,
+    data: CompanyRequestUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> CompanyRequestResponse:
+    return await svc.approve_company_request(request_id, data, user, session)
 
 
 # ── Услуги (для владельца) ───────────────────────────────────────────────────

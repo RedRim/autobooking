@@ -112,7 +112,11 @@ async function handleLogin() {
     }
 
     const raw = typeof route.query.redirect === 'string' ? route.query.redirect : '';
-    const safe = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/dashboard/user';
+    let fallback = '/dashboard/user';
+    if (role === 'manager' || role === 'admin') {
+      fallback = '/dashboard/manager';
+    }
+    const safe = raw.startsWith('/') && !raw.startsWith('//') ? raw : fallback;
     router.push(safe);
   } catch (error) {
     serverError.value = error.message || 'Ошибка входа. Проверьте данные.';

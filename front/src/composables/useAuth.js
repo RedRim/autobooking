@@ -36,9 +36,14 @@ export function useAuth() {
     const response = await fetch(`${API_URL}${path}`, { ...options, headers });
 
     if (response.status === 401) {
+      const currentRole = localStorage.getItem('user_role');
       clearSession();
       if (redirectOn401 && typeof window !== 'undefined') {
-        window.location.assign('/login/user');
+        if (currentRole === 'company') {
+          window.location.assign('/login/company');
+        } else {
+          window.location.assign('/login/user');
+        }
       }
       throw new Error('Сессия истекла. Пожалуйста, войдите снова.');
     }

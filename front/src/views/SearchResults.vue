@@ -101,7 +101,16 @@ function goDashboard() {
     router.push('/login/user');
     return;
   }
-  router.push(getUserRole() === 'company' ? '/dashboard/company' : '/dashboard/user');
+  const role = getUserRole();
+  if (role === 'company') {
+    router.push('/dashboard/company');
+    return;
+  }
+  if (role === 'manager' || role === 'admin') {
+    router.push('/dashboard/manager');
+    return;
+  }
+  router.push('/dashboard/user');
 }
 
 function buildQueryParams() {
