@@ -3,7 +3,7 @@ from decimal import Decimal
 import re
 from typing import Annotated
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic.functional_validators import BeforeValidator
 from pydantic_core import PydanticCustomError
 
@@ -92,7 +92,7 @@ class ServiceCreate(BaseModel):
     name: str
     description: str | None = None
     price: Decimal | None = None
-    duration_minutes: int
+    duration_minutes: int = Field(gt=5, lt=180)
     is_active: bool = True
 
 
@@ -112,7 +112,7 @@ class ServiceUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     price: Decimal | None = None
-    duration_minutes: int | None = None
+    duration_minutes: int | None = Field(default=None, gt=5, lt=180)
     is_active: bool | None = None
 
 
