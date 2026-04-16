@@ -20,12 +20,47 @@
           type="text"
           placeholder="Название компании"
         />
-        <input
-          v-model="search.category"
-          type="text"
-          placeholder="Категория (необязательно)"
-        />
-        <input v-model="search.city" type="text" placeholder="Город (необязательно)" />
+        <div class="category-input-wrapper">
+          <input
+            v-model="search.category"
+            type="text"
+            placeholder="Категория (необязательно)"
+            @input="onCategoryInput"
+            @focus="onCategoryFocus"
+            @blur="handleCategoryBlur"
+          />
+          <ul
+            v-if="showCategoryDropdown && categorySuggestions.length > 0"
+            class="suggestions-dropdown"
+          >
+            <li
+              v-for="category in categorySuggestions"
+              :key="category.id"
+              @mousedown="selectCategorySuggestion(category)"
+            >
+              <strong>{{ category.name }}</strong>
+            </li>
+          </ul>
+        </div>
+        <div class="city-input-wrapper">
+          <input
+            v-model="search.city"
+            type="text"
+            placeholder="Город (необязательно)"
+            @input="onCityInput"
+            @focus="onCityFocus"
+            @blur="handleCityBlur"
+          />
+          <ul v-if="showCityDropdown && citySuggestions.length > 0" class="suggestions-dropdown">
+            <li
+              v-for="city in citySuggestions"
+              :key="city.name"
+              @mousedown="selectCitySuggestion(city)"
+            >
+              <strong>{{ city.name }}</strong>
+            </li>
+          </ul>
+        </div>
         <button type="button" @click="goSearch" :disabled="searchLoading">
           {{ searchLoading ? '...' : 'Найти' }}
         </button>
@@ -93,6 +128,12 @@ const bookings = ref([]);
 const companyNames = ref({});
 const serviceNames = ref({});
 const upcomingSortKey = ref('startAsc');
+const categorySuggestions = ref([]);
+const showCategoryDropdown = ref(false);
+let categoryDebounceTimer = null;
+const citySuggestions = ref([]);
+const showCityDropdown = ref(false);
+let cityDebounceTimer = null;
 
 const search = reactive({
   query: '',
@@ -155,6 +196,99 @@ function goSearch() {
     .finally(() => {
       searchLoading.value = false;
     });
+}
+
+function onCategoryInput() {
+  showCategoryDropdown.value = true;
+  clearTimeout(categoryDebounceTimer);
+  categoryDebounceTimer = setTimeout(() => {
+    fetchCategorySuggestions(search.category.trim());
+  }, 300);
+}
+
+async function fetchCategorySuggestions(query = '') {
+  const params = new URLSearchParams({ limit: '50' });
+  if (query) {
+    params.set('search', query);
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/categories?${params.toString()}`);
+    if (response.ok) {
+      const data = await response.json().catch(() => []);
+      categorySuggestions.value = Array.isArray(data) ? data : [];
+    } else {
+      categorySuggestions.value = [];
+    }
+  } catch {
+    categorySuggestions.value = [];
+  }
+}
+
+async function onCategoryFocus() {
+  showCategoryDropdown.value = true;
+  if (categorySuggestions.value.length > 0) {
+    return;
+  }
+  await fetchCategorySuggestions(search.category.trim());
+}
+
+function selectCategorySuggestion(category) {
+  search.category = category.name;
+  showCategoryDropdown.value = false;
+  categorySuggestions.value = [];
+}
+
+function handleCategoryBlur() {
+  setTimeout(() => {
+    showCategoryDropdown.value = false;
+  }, 150);
+}
+
+function onCityInput() {
+  showCityDropdown.value = true;
+  clearTimeout(cityDebounceTimer);
+  cityDebounceTimer = setTimeout(() => {
+    fetchCitySuggestions(search.city.trim());
+  }, 300);
+}
+
+async function fetchCitySuggestions(query = '') {
+  const params = new URLSearchParams();
+  if (query) {
+    params.set('search', query);
+  }
+  try {
+    const response = await fetch(`${API_URL}/cities?${params.toString()}`);
+    if (response.ok) {
+      const data = await response.json().catch(() => []);
+      citySuggestions.value = Array.isArray(data) ? data : [];
+    } else {
+      citySuggestions.value = [];
+    }
+  } catch {
+    citySuggestions.value = [];
+  }
+}
+
+async function onCityFocus() {
+  showCityDropdown.value = true;
+  if (citySuggestions.value.length > 0) {
+    return;
+  }
+  await fetchCitySuggestions(search.city.trim());
+}
+
+function selectCitySuggestion(city) {
+  search.city = city.name;
+  showCityDropdown.value = false;
+  citySuggestions.value = [];
+}
+
+function handleCityBlur() {
+  setTimeout(() => {
+    showCityDropdown.value = false;
+  }, 150);
 }
 
 async function loadBookings() {
@@ -342,6 +476,48 @@ h1 {
   border-radius: 10px;
   border: 1px solid #e5e7eb;
   font-size: 14px;
+}
+
+.category-input-wrapper,
+.city-input-wrapper {
+  flex: 1;
+  min-width: 160px;
+  position: relative;
+}
+
+.category-input-wrapper input,
+.city-input-wrapper input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.suggestions-dropdown {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  list-style: none;
+  margin: 0;
+  padding: 5px 0;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.suggestions-dropdown li {
+  padding: 10px 15px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #1f2937;
+  transition: background 0.15s;
+}
+
+.suggestions-dropdown li:hover {
+  background: #f3f4f6;
 }
 
 .search-box button {
