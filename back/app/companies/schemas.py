@@ -177,7 +177,7 @@ class CompanyUpdate(BaseModel):
     description: str | None = None
     city: str | None = None
     address: str | None = None
-    phone: str | None = None
+    phone: RuPhone
     is_active: bool | None = None
 
 
