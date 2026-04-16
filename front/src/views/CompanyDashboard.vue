@@ -115,7 +115,7 @@
         <div v-else-if="bookings.length === 0" class="empty-state">Пока нет записей</div>
 
         <div v-else class="bookings-list">
-          <div v-for="booking in bookings" :key="booking.id" class="booking-card">
+          <div v-for="booking in sortedBookings" :key="booking.id" class="booking-card">
             <div class="booking-header">
               <div>
                 <h3>Клиент: {{ booking.user_full_name || `#${booking.user_id}` }}</h3>
@@ -168,7 +168,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useAuth } from '@/composables/useAuth';
@@ -184,6 +184,45 @@ const bookings = ref([]);
 const companyId = ref(null);
 const needsCompany = ref(false);
 const serviceNames = ref({});
+
+function statusPriority(status) {
+  const map = { pending: 0, confirmed: 1, cancelled: 2 };
+  return map[status] ?? 3;
+}
+
+function toMs(dateString) {
+  const t = new Date(dateString).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+const sortedBookings = computed(() => {
+  const now = Date.now();
+  return [...(bookings.value || [])].sort((a, b) => {
+    const ap = statusPriority(a.status);
+    const bp = statusPriority(b.status);
+    if (ap !== bp) return ap - bp;
+
+    const aUpcoming = toMs(a.start_at) >= now;
+    const bUpcoming = toMs(b.start_at) >= now;
+    if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+
+    // Для будущих: ближайшие первыми.
+    // Для прошедших: последние первыми.
+    if (aUpcoming) {
+      const aDate = toMs(a.start_at);
+      const bDate = toMs(b.start_at);
+      if (aDate !== bDate) return aDate - bDate;
+    } else {
+      const aDate = toMs(a.start_at);
+      const bDate = toMs(b.start_at);
+      if (aDate !== bDate) return bDate - aDate;
+    }
+
+    const aCreated = toMs(a.created_at);
+    const bCreated = toMs(b.created_at);
+    return bCreated - aCreated;
+  });
+});
 
 const creatingRequest = ref(false);
 const createError = ref('');
