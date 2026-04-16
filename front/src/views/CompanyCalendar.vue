@@ -42,7 +42,17 @@
           <input v-model="settings.startTime" type="time" @change="updatePreview" />
 
           <label>Конец</label>
-          <input v-model="settings.endTime" type="time" @change="updatePreview" />
+<input v-model="settings.endTime" type="time" @change="updatePreview" />
+
+<label>Длительность записи (мин)</label>
+<input
+  v-model.number="settings.duration"
+  type="number"
+  min="5"
+  step="5"
+  placeholder="30"
+  @input="updatePreview"
+/>
 
           <label>Длительность записи (мин)</label>
           <input
