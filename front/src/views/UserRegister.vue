@@ -102,9 +102,6 @@ function validateForm() {
   if (!form.password) {
     errors.password = 'Введите пароль';
     isValid = false;
-  } else if (form.password.length < 4) {
-    errors.password = 'Пароль должен быть не менее 4 символов';
-    isValid = false;
   }
 
   if (form.password !== form.confirmPassword) {
