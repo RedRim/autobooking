@@ -163,8 +163,8 @@ async def get_or_create_category(name: str, session: AsyncSession) -> Category:
     return category
 
 
-async def list_categories(session: AsyncSession, search: str | None, limit: int = 10) -> list[Category]:
-    q = select(Category).order_by(Category.name.asc()).limit(limit)
+async def list_categories(session: AsyncSession, search: str | None) -> list[Category]:
+    q = select(Category).order_by(Category.name.asc())
     if search:
         q = q.where(Category.name.ilike(f"{search.strip()}%"))
     result = await session.scalars(q)

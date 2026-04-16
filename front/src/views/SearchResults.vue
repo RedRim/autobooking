@@ -37,12 +37,29 @@
 </div>
 
       <div class="filters">
-        <input
-          v-model="selectedCategory"
-          type="text"
-          placeholder="Категория (точное совпадение, например Барбершоп)"
-          @change="performSearch"
-        />
+        <div class="category-input-wrapper">
+          <input
+            v-model="selectedCategory"
+            type="text"
+            placeholder="Категория"
+            @input="onCategoryInput"
+            @focus="onCategoryFocus"
+            @blur="handleCategoryBlur"
+            @keyup.enter="performSearch"
+          />
+          <ul
+            v-if="showCategoryDropdown && categorySuggestions.length > 0"
+            class="suggestions-dropdown"
+          >
+            <li
+              v-for="category in categorySuggestions"
+              :key="category.id"
+              @mousedown="selectCategorySuggestion(category)"
+            >
+              <strong>{{ category.name }}</strong>
+            </li>
+          </ul>
+        </div>
         <input
           v-model="selectedCity"
           type="text"
@@ -111,6 +128,9 @@ const companies = ref([]);
 const suggestions = ref([]);
 const showDropdown = ref(false);
 let debounceTimer = null;
+const categorySuggestions = ref([]);
+const showCategoryDropdown = ref(false);
+let categoryDebounceTimer = null;
 
 function onSearchInput() {
   showDropdown.value = true;
@@ -136,6 +156,54 @@ async function fetchSuggestions() {
   } catch {
     suggestions.value = [];
   }
+}
+
+function onCategoryInput() {
+  showCategoryDropdown.value = true;
+  clearTimeout(categoryDebounceTimer);
+  categoryDebounceTimer = setTimeout(() => {
+    fetchCategorySuggestions(selectedCategory.value.trim());
+  }, 300);
+}
+
+async function fetchCategorySuggestions(query = '') {
+  const params = new URLSearchParams({ limit: '50' });
+  if (query) {
+    params.set('search', query);
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/categories?${params.toString()}`);
+    if (response.ok) {
+      const data = await response.json().catch(() => []);
+      categorySuggestions.value = Array.isArray(data) ? data : [];
+    } else {
+      categorySuggestions.value = [];
+    }
+  } catch {
+    categorySuggestions.value = [];
+  }
+}
+
+async function onCategoryFocus() {
+  showCategoryDropdown.value = true;
+  if (categorySuggestions.value.length > 0) {
+    return;
+  }
+  await fetchCategorySuggestions();
+}
+
+function selectCategorySuggestion(category) {
+  selectedCategory.value = category.name;
+  showCategoryDropdown.value = false;
+  categorySuggestions.value = [];
+  performSearch();
+}
+
+function handleCategoryBlur() {
+  setTimeout(() => {
+    showCategoryDropdown.value = false;
+  }, 150);
 }
 
 function selectSuggestion(comp) {
@@ -280,6 +348,16 @@ header {
 .search-input-wrapper {
   flex: 1;
   position: relative;
+}
+
+.category-input-wrapper {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
+}
+
+.category-input-wrapper input {
+  width: 100%;
 }
 
 .search-input-wrapper input {

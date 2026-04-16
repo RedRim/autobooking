@@ -50,6 +50,7 @@
                 placeholder="Категория *"
                 required
                 @input="onCategoryInput"
+                @focus="onCategoryFocus"
                 @blur="closeSuggestions"
               />
               <div v-if="categoryLoading" class="hint">Поиск категорий...</div>
@@ -271,21 +272,27 @@ function onCategoryInput() {
   if (categoryTimer) {
     clearTimeout(categoryTimer);
   }
-  const query = createForm.category.trim();
-  if (!query) {
-    categoryOptions.value = [];
-    return;
-  }
   categoryTimer = setTimeout(() => {
-    loadCategorySuggestions(query);
+    loadCategorySuggestions(createForm.category.trim());
   }, 250);
 }
 
-async function loadCategorySuggestions(query) {
+async function onCategoryFocus() {
+  if (categoryOptions.value.length > 0) {
+    return;
+  }
+  await loadCategorySuggestions(createForm.category.trim());
+}
+
+async function loadCategorySuggestions(query = '') {
   categoryLoading.value = true;
   try {
+    const params = new URLSearchParams({ limit: '50' });
+    if (query) {
+      params.set('search', query);
+    }
     const response = await auth.authFetch(
-      `/categories?search=${encodeURIComponent(query)}&limit=8`,
+      `/categories?${params.toString()}`,
       {},
       { redirectOn401: false },
     );
@@ -490,6 +497,8 @@ header {
   border-radius: 10px;
   overflow: hidden;
   background: white;
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .suggestion-item {
