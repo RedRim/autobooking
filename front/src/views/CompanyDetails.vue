@@ -15,6 +15,27 @@
       <template v-else>
         <div class="company-card">
           <div class="company-header">
+
+            <div class="company-header">
+  <!-- Новый блок логотипа -->
+  <div class="company-logo">
+    <img 
+      v-if="company?.logo_url" 
+      :src="company.logo_url" 
+      :alt="company?.name"
+      @error="handleLogoError"
+    />
+    <div v-else class="logo-placeholder">
+      {{ company?.name?.charAt(0) || '🏢' }}
+    </div>
+  </div>
+  
+  <div>
+    <h1>{{ company?.name }}</h1>
+    <div class="muted">{{ company?.category || 'Категория не указана' }}</div>
+  </div>
+</div>
+
             <div>
               <h1>{{ company?.name }}</h1>
               <div class="muted">{{ company?.category || 'Категория не указана' }}</div>
@@ -30,10 +51,13 @@
               {{ company?.address || '—' }}
             </div>
             <div class="info-box">
-              <strong>График</strong>
-              <br />
-              {{ scheduleSummary }}
-            </div>
+  <strong>График</strong>
+  <div class="schedule-list">
+    <div v-for="(day, idx) in scheduleList" :key="idx" class="schedule-item">
+      {{ day }}
+    </div>
+  </div>
+</div>
             <div class="info-box">
               <strong>Телефон</strong>
               <br />
@@ -185,12 +209,12 @@ const loginLink = computed(() => ({
   query: { redirect: route.fullPath },
 }));
 
-const scheduleSummary = computed(() => {
+const scheduleList = computed(() => {
   const wh = company.value?.working_hours;
-  if (!wh || wh.length === 0) return 'Расписание не задано';
+  if (!wh || wh.length === 0) return ['Расписание не задано'];
 
   const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-  const parts = [...wh]
+  return [...wh]
     .sort((a, b) => a.day_of_week - b.day_of_week)
     .map((d) => {
       const label = dayNames[d.day_of_week] ?? d.day_of_week;
@@ -199,8 +223,12 @@ const scheduleSummary = computed(() => {
       const end = formatTimeOnly(d.end_time);
       return `${label}: ${start}–${end}`;
     });
-  return parts.join('; ');
 });
+
+function handleLogoError(e) {
+  // Скрываем битое изображение, покажется placeholder
+  e.target.style.display = 'none';
+}
 
 onMounted(async () => {
   if (!companyId.value) {
@@ -426,6 +454,55 @@ header {
   color: #111827;
 }
 
+/* Стили для контейнера логотипа */
+.company-logo {
+  margin-right: 20px;
+  flex-shrink: 0;
+}
+
+.company-logo img {
+  width: 80px;
+  height: 80px;
+  border-radius: 16px;
+  object-fit: cover;
+  border: 2px solid #e5e7eb;
+  display: block;
+}
+
+/* Заглушка, если логотип не загружен */
+.logo-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #2563eb, #1e40af);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 600;
+  border: 2px solid #dbeafe;
+}
+
+/* Адаптив для мобильных */
+@media (max-width: 768px) {
+  .company-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .company-logo {
+    margin-right: 0;
+  }
+  
+  .company-logo img,
+  .logo-placeholder {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+  }
+}
 .muted {
   color: #6b7280;
 }
@@ -630,5 +707,18 @@ header {
   header {
     padding: 15px 20px;
   }
+
+  .schedule-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.schedule-item {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.4;
+}
 }
 </style>

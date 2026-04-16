@@ -10,22 +10,37 @@
 
     <div class="container">
       <div class="search-bar">
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Название компании"
-          @keyup.enter="performSearch"
-        />
-        <button type="button" @click="performSearch" :disabled="searching">
-          {{ searching ? 'Поиск...' : 'Найти' }}
-        </button>
-      </div>
+  <div class="search-input-wrapper">
+    <input
+      v-model="searchQuery"
+      type="text"
+      placeholder="Название компании"
+      @input="onSearchInput"
+      @focus="showDropdown = true"
+      @blur="handleBlur"
+      @keyup.enter="performSearch"
+    />
+    <ul v-if="showDropdown && suggestions.length > 0" class="suggestions-dropdown">
+      <li
+        v-for="comp in suggestions"
+        :key="comp.id"
+        @mousedown="selectSuggestion(comp)"
+      >
+        <strong>{{ comp.name }}</strong>
+        <span v-if="comp.category" class="muted-suggestion"> · {{ comp.category }}</span>
+      </li>
+    </ul>
+  </div>
+  <button type="button" @click="performSearch" :disabled="searching">
+    {{ searching ? 'Поиск...' : 'Найти' }}
+  </button>
+</div>
 
       <div class="filters">
         <input
           v-model="selectedCategory"
           type="text"
-          placeholder="Категория"
+          placeholder="Категория (точное совпадение, например Барбершоп)"
           @change="performSearch"
         />
         <input
@@ -91,6 +106,51 @@ const searching = ref(false);
 const loading = ref(true);
 const error = ref('');
 const companies = ref([]);
+
+// Добавьте рядом с другими ref
+const suggestions = ref([]);
+const showDropdown = ref(false);
+let debounceTimer = null;
+
+function onSearchInput() {
+  showDropdown.value = true;
+  clearTimeout(debounceTimer);
+  
+  if (!searchQuery.value.trim()) {
+    suggestions.value = [];
+    return;
+  }
+  debounceTimer = setTimeout(fetchSuggestions, 300);
+}
+
+async function fetchSuggestions() {
+  if (!searchQuery.value.trim()) return;
+  try {
+    const response = await fetch(`${API_URL}/companies?search=${encodeURIComponent(searchQuery.value.trim())}`);
+    if (response.ok) {
+      const data = await response.json();
+      suggestions.value = (Array.isArray(data) ? data : []).slice(0, 5);
+    } else {
+      suggestions.value = [];
+    }
+  } catch {
+    suggestions.value = [];
+  }
+}
+
+function selectSuggestion(comp) {
+  searchQuery.value = comp.name;
+  showDropdown.value = false;
+  suggestions.value = [];
+  viewCompany(comp.id); // Сразу переходим на страницу компании
+}
+
+function handleBlur() {
+  // Задержка, чтобы клик по списку успел сработать до закрытия
+  setTimeout(() => {
+    showDropdown.value = false;
+  }, 150);
+}
 
 onMounted(() => {
   performSearch();
@@ -207,12 +267,55 @@ header {
   gap: 10px;
 }
 
-.search-bar input {
+/* Замените оригинальный .search-bar input на этот */
+.search-input-wrapper {
   flex: 1;
+  position: relative;
+}
+
+.search-input-wrapper input {
+  width: 100%;
+  box-sizing: border-box;
   padding: 12px;
   border-radius: 8px;
   border: 1px solid #d1d5db;
   font-size: 15px;
+}
+
+/* Стили выпадающего списка */
+.suggestions-dropdown {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  list-style: none;
+  margin: 0;
+  padding: 5px 0;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.suggestions-dropdown li {
+  padding: 10px 15px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #1f2937;
+  transition: background 0.15s;
+}
+
+.suggestions-dropdown li:hover {
+  background: #f3f4f6;
+}
+
+.muted-suggestion {
+  color: #6b7280;
+  font-size: 13px;
+  margin-left: 6px;
 }
 
 .search-bar button {
