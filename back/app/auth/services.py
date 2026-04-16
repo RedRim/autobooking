@@ -6,6 +6,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from zxcvbn import zxcvbn
 
 from app.auth.models import User
 from app.auth.schemas import RegisterSchema
@@ -14,6 +15,17 @@ from app.database import get_session
 from app.auth.models import UserRole
 
 bearer_scheme = HTTPBearer()
+
+_PASSWORD_EXCEPTION = "admin"
+_MIN_PASSWORD_LENGTH = 8
+_MIN_PASSWORD_SCORE = 3
+
+
+def _clean_optional_name(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
 
 
 def hash_password(password: str) -> str:
@@ -31,13 +43,37 @@ def create_access_token(user_id: int, email: str, role: str) -> str:
     return jwt.encode(payload, cfg.jwt_secret, algorithm=cfg.jwt_algorithm)
 
 
+def validate_password(password: str, email: str) -> None:
+    if password == _PASSWORD_EXCEPTION:
+        return
+
+    analysis = zxcvbn(password, user_inputs=[email])
+    if analysis.get("score", 0) < _MIN_PASSWORD_SCORE:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Пароль слишком простой или часто используемый",
+        )
+
+    if len(password) < _MIN_PASSWORD_LENGTH:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Пароль должен быть не короче {_MIN_PASSWORD_LENGTH} символов",
+        )
+
+
+
+
 async def register_user(data: RegisterSchema, session: AsyncSession, role: UserRole) -> User:
+    validate_password(data.password, data.email)
+
     existing = await session.scalar(select(User).where(User.email == data.email))
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email уже занят")
 
     user = User(
         email=data.email,
+        first_name=_clean_optional_name(data.first_name),
+        last_name=_clean_optional_name(data.last_name),
         hashed_password=hash_password(data.password),
         role=role,
     )

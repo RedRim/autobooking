@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -51,6 +51,19 @@ class Booking(Base):
     """
 
     __tablename__ = "bookings"
+    __table_args__ = (
+        # Уникальность только для "активных" записей.
+        # После перевода в `cancelled` запись не должна блокировать повторное бронирование слота.
+        Index(
+            "uq_bookings_user_service_company_start_at_active",
+            "user_id",
+            "service_id",
+            "company_id",
+            "start_at",
+            unique=True,
+            postgresql_where=text("status <> 'cancelled'"),
+        ),
+    )
 
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True

@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import and_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
@@ -19,6 +20,12 @@ from app.companies.models import Service, WorkingHours
 
 
 TZ_IRKUTSK = ZoneInfo("Asia/Irkutsk")
+
+
+def _build_user_full_name(user: User) -> str | None:
+    parts = [user.first_name, user.last_name]
+    full_name = " ".join(part.strip() for part in parts if part and part.strip())
+    return full_name or None
 
 
 async def get_available_slots(
@@ -158,7 +165,15 @@ async def create_booking(data: BookingCreate, user: User, session: AsyncSession)
         notes=data.notes,
     )
     session.add(booking)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Защита на уровне БД от повторной вставки (двойной POST/гонка запросов).
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Выбранное время уже занято",
+        )
     await session.refresh(booking)
     return booking
 
@@ -179,7 +194,12 @@ async def get_user_bookings(user: User, session: AsyncSession) -> list[Booking]:
     result = await session.scalars(
         select(Booking).where(Booking.user_id == user.id).order_by(Booking.start_at.desc())
     )
-    return list(result.all())
+    bookings = list(result.all())
+
+    for b in bookings:
+        b.user_full_name = _build_user_full_name(user)
+
+    return bookings
 
 
 async def cancel_booking(booking_id: int, user: User, session: AsyncSession) -> Booking:
@@ -398,4 +418,13 @@ async def get_company_bookings(company_id: int, user: User, session: AsyncSessio
     result = await session.scalars(
         select(Booking).where(Booking.company_id == company_id).order_by(Booking.start_at.desc())
     )
-    return list(result.all())
+    bookings = list(result.all())
+
+    if bookings:
+        user_ids = {b.user_id for b in bookings}
+        users = await session.scalars(select(User).where(User.id.in_(user_ids)))
+        user_map = {u.id: _build_user_full_name(u) for u in users.all()}
+        for b in bookings:
+            b.user_full_name = user_map.get(b.user_id)
+
+    return bookings

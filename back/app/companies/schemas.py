@@ -1,7 +1,28 @@
 from datetime import datetime, time
 from decimal import Decimal
+import re
+from typing import Annotated
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from pydantic.functional_validators import BeforeValidator
+from pydantic_core import PydanticCustomError
+
+from app.companies.models import CompanyRequestStatus
+
+
+def _parse_ru_phone(value: str) -> str:
+    cleaned = re.sub(r"\D", "", str(value))
+    if cleaned.startswith("8"):
+        cleaned = "7" + cleaned[1:]
+    if len(cleaned) != 11 or not cleaned.startswith("7"):
+        raise PydanticCustomError(
+            "ru_phone",
+            "Неверный формат телефона. Верный формат: +7/8 и 10 цифр",
+        )
+    return f"+7{cleaned[1:]}"
+
+
+RuPhone = Annotated[str, BeforeValidator(_parse_ru_phone)]
 
 
 class WorkingHoursCreate(BaseModel):
@@ -71,7 +92,7 @@ class ServiceCreate(BaseModel):
     name: str
     description: str | None = None
     price: Decimal | None = None
-    duration_minutes: int
+    duration_minutes: int = Field(gt=5, lt=180)
     is_active: bool = True
 
 
@@ -91,7 +112,7 @@ class ServiceUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     price: Decimal | None = None
-    duration_minutes: int | None = None
+    duration_minutes: int | None = Field(default=None, gt=5, lt=180)
     is_active: bool | None = None
 
 
@@ -115,36 +136,28 @@ class ServiceResponse(BaseModel):
 
 class CompanyCreate(BaseModel):
     """
-    Тело запроса для регистрации новой компании.
+    Тело запроса для создания заявки на новую компанию.
 
-    Используется в POST /owner/company.
+    Используется в POST /owner/company-request.
     Доступно только пользователям с ролью 'company'.
 
     Поля:
         name        — публичное название компании.
-        description — описание деятельности.
-        category    — тип бизнеса, используется для фильтрации в поиске.
+        category    — текст категории от пользователя (может быть новой категорией).
         city        — город; используется для фильтрации в поиске.
-        address     — точный адрес.
-        phone       — телефон для связи.
 
     Пример тела запроса:
         {
             "name": "Барбершоп Топор",
-            "description": "Мужские стрижки и уход за бородой",
             "category": "Барбершоп",
-            "city": "Москва",
-            "address": "ул. Арбат, 10",
-            "phone": "+7 999 123-45-67"
+            "city": "Москва"
         }
     """
 
     name: str
-    description: str | None = None
-    category: str | None = None
-    city: str | None = None
-    address: str | None = None
-    phone: str | None = None
+    category: str
+    city: str
+    phone: RuPhone
 
 
 class CompanyUpdate(BaseModel):
@@ -162,10 +175,9 @@ class CompanyUpdate(BaseModel):
 
     name: str | None = None
     description: str | None = None
-    category: str | None = None
     city: str | None = None
     address: str | None = None
-    phone: str | None = None
+    phone: RuPhone
     is_active: bool | None = None
 
 
@@ -208,5 +220,39 @@ class CompanyResponse(BaseModel):
     created_at: datetime
     services: list[ServiceResponse] = []
     working_hours: list[WorkingHoursResponse] = []
+
+    model_config = {"from_attributes": True}
+
+
+class CategoryResponse(BaseModel):
+    id: int
+    name: str
+
+    model_config = {"from_attributes": True}
+
+
+class CityResponse(BaseModel):
+    name: str
+
+
+class CompanyRequestUpdate(BaseModel):
+    city: str | None = None
+    category: str | None = None
+    phone: RuPhone | None = None
+
+
+class CompanyRequestResponse(BaseModel):
+    id: int
+    owner_id: int
+    name: str
+    requested_category: str
+    city: str
+    phone: str | None
+    status: CompanyRequestStatus
+    approved_by_id: int | None
+    approved_at: datetime | None
+    company_id: int | None
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}

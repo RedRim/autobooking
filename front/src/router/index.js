@@ -5,7 +5,9 @@ import CompanyCalendar from '@/views/CompanyCalendar.vue';
 import CompanyDashboard from '@/views/CompanyDashboard.vue';
 import CompanyDetails from '@/views/CompanyDetails.vue';
 import CompanyLogin from '@/views/CompanyLogin.vue';
+import CompanyProfile from '@/views/CompanyProfile.vue';
 import CompanyRegisterStep1 from '@/views/CompanyRegisterStep1.vue';
+import ManagerDashboard from '@/views/ManagerDashboard.vue';
 import CompanyServices from '@/views/CompanyServices.vue';
 import RoleSelection from '@/views/RoleSelection.vue';
 import SearchResults from '@/views/SearchResults.vue';
@@ -49,6 +51,18 @@ const routes = [
     meta: { requiresAuth: true, role: 'company' },
   },
   {
+    path: '/dashboard/manager',
+    name: 'ManagerDashboard',
+    component: ManagerDashboard,
+    meta: { requiresAuth: true, role: 'manager' },
+  },
+  {
+    path: '/company/profile',
+    name: 'CompanyProfile',
+    component: CompanyProfile,
+    meta: { requiresAuth: true, role: 'company' },
+  },
+  {
     path: '/company/bookings',
     name: 'CompanyBookings',
     component: CompanyDashboard,
@@ -76,8 +90,7 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('access_token');
   const rawRole = localStorage.getItem('user_role');
-  /** Админ в API есть, отдельной панели нет — пускаем в клиентские экраны. */
-  const role = rawRole === 'admin' ? 'user' : rawRole;
+  const role = rawRole === 'admin' ? 'manager' : rawRole;
 
   if (to.meta.requiresAuth && !token) {
     const redirect = to.fullPath;
@@ -90,7 +103,12 @@ router.beforeEach((to, _from, next) => {
   }
 
   if (to.meta.role && role && to.meta.role !== role) {
-    next(role === 'company' ? '/dashboard/company' : '/dashboard/user');
+    const fallbackByRole = {
+      company: '/dashboard/company',
+      manager: '/dashboard/manager',
+      user: '/dashboard/user',
+    };
+    next(fallbackByRole[role] || '/dashboard/user');
     return;
   }
 

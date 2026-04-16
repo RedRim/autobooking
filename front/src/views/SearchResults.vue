@@ -37,18 +37,49 @@
 </div>
 
       <div class="filters">
-        <input
-          v-model="selectedCategory"
-          type="text"
-          placeholder="Категория (точное совпадение, например Барбершоп)"
-          @change="performSearch"
-        />
-        <input
-          v-model="selectedCity"
-          type="text"
-          placeholder="Город"
-          @change="performSearch"
-        />
+        <div class="category-input-wrapper">
+          <input
+            v-model="selectedCategory"
+            type="text"
+            placeholder="Категория"
+            @input="onCategoryInput"
+            @focus="onCategoryFocus"
+            @blur="handleCategoryBlur"
+            @keyup.enter="performSearch"
+          />
+          <ul
+            v-if="showCategoryDropdown && categorySuggestions.length > 0"
+            class="suggestions-dropdown"
+          >
+            <li
+              v-for="category in categorySuggestions"
+              :key="category.id"
+              @mousedown="selectCategorySuggestion(category)"
+            >
+              <strong>{{ category.name }}</strong>
+            </li>
+          </ul>
+        </div>
+        <div class="city-input-wrapper">
+          <input
+            v-model="selectedCity"
+            type="text"
+            placeholder="Город"
+            @input="onCityInput"
+            @focus="onCityFocus"
+            @blur="handleCityBlur"
+            @keyup.enter="performSearch"
+          />
+          <ul v-if="showCityDropdown && citySuggestions.length > 0" class="suggestions-dropdown">
+            <li
+              v-for="city in citySuggestions"
+              :key="city.name"
+              @mousedown="selectCitySuggestion(city)"
+            >
+              <strong>{{ city.name }}</strong>
+            </li>
+          </ul>
+        </div>
       </div>
 
       <h2 class="results-title">
@@ -111,6 +142,12 @@ const companies = ref([]);
 const suggestions = ref([]);
 const showDropdown = ref(false);
 let debounceTimer = null;
+const categorySuggestions = ref([]);
+const showCategoryDropdown = ref(false);
+let categoryDebounceTimer = null;
+const citySuggestions = ref([]);
+const showCityDropdown = ref(false);
+let cityDebounceTimer = null;
 
 function onSearchInput() {
   showDropdown.value = true;
@@ -138,6 +175,101 @@ async function fetchSuggestions() {
   }
 }
 
+function onCategoryInput() {
+  showCategoryDropdown.value = true;
+  clearTimeout(categoryDebounceTimer);
+  categoryDebounceTimer = setTimeout(() => {
+    fetchCategorySuggestions(selectedCategory.value.trim());
+  }, 300);
+}
+
+async function fetchCategorySuggestions(query = '') {
+  const params = new URLSearchParams({ limit: '50' });
+  if (query) {
+    params.set('search', query);
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/categories?${params.toString()}`);
+    if (response.ok) {
+      const data = await response.json().catch(() => []);
+      categorySuggestions.value = Array.isArray(data) ? data : [];
+    } else {
+      categorySuggestions.value = [];
+    }
+  } catch {
+    categorySuggestions.value = [];
+  }
+}
+
+async function onCategoryFocus() {
+  showCategoryDropdown.value = true;
+  if (categorySuggestions.value.length > 0) {
+    return;
+  }
+  await fetchCategorySuggestions();
+}
+
+function selectCategorySuggestion(category) {
+  selectedCategory.value = category.name;
+  showCategoryDropdown.value = false;
+  categorySuggestions.value = [];
+  performSearch();
+}
+
+function handleCategoryBlur() {
+  setTimeout(() => {
+    showCategoryDropdown.value = false;
+  }, 150);
+}
+
+function onCityInput() {
+  showCityDropdown.value = true;
+  clearTimeout(cityDebounceTimer);
+  cityDebounceTimer = setTimeout(() => {
+    fetchCitySuggestions(selectedCity.value.trim());
+  }, 300);
+}
+
+async function fetchCitySuggestions(query = '') {
+  const params = new URLSearchParams();
+  if (query) {
+    params.set('search', query);
+  }
+  try {
+    const response = await fetch(`${API_URL}/cities?${params.toString()}`);
+    if (response.ok) {
+      const data = await response.json().catch(() => []);
+      citySuggestions.value = Array.isArray(data) ? data : [];
+    } else {
+      citySuggestions.value = [];
+    }
+  } catch {
+    citySuggestions.value = [];
+  }
+}
+
+async function onCityFocus() {
+  showCityDropdown.value = true;
+  if (citySuggestions.value.length > 0) {
+    return;
+  }
+  await fetchCitySuggestions(selectedCity.value.trim());
+}
+
+function selectCitySuggestion(city) {
+  selectedCity.value = city.name;
+  showCityDropdown.value = false;
+  citySuggestions.value = [];
+  performSearch();
+}
+
+function handleCityBlur() {
+  setTimeout(() => {
+    showCityDropdown.value = false;
+  }, 150);
+}
+
 function selectSuggestion(comp) {
   searchQuery.value = comp.name;
   showDropdown.value = false;
@@ -161,7 +293,16 @@ function goDashboard() {
     router.push('/login/user');
     return;
   }
-  router.push(getUserRole() === 'company' ? '/dashboard/company' : '/dashboard/user');
+  const role = getUserRole();
+  if (role === 'company') {
+    router.push('/dashboard/company');
+    return;
+  }
+  if (role === 'manager' || role === 'admin') {
+    router.push('/dashboard/manager');
+    return;
+  }
+  router.push('/dashboard/user');
 }
 
 function buildQueryParams() {
@@ -271,6 +412,23 @@ header {
 .search-input-wrapper {
   flex: 1;
   position: relative;
+}
+
+.category-input-wrapper {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
+}
+
+.city-input-wrapper {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
+}
+
+.category-input-wrapper input,
+.city-input-wrapper input {
+  width: 100%;
 }
 
 .search-input-wrapper input {

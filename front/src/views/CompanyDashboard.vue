@@ -3,49 +3,123 @@
     <header>
       <div class="logo">AutoBooking</div>
       <div class="nav">
-        <button type="button" @click="router.push('/company/services')">Услуги</button>
-        <button type="button" @click="router.push('/company/calendar')">Календарь</button>
+        <button type="button" @click="router.push('/company/profile')" :disabled="!companyId">
+          Профиль
+        </button>
+        <button type="button" @click="router.push('/company/services')" :disabled="!companyId">
+          Услуги
+        </button>
+        <button type="button" @click="router.push('/company/calendar')" :disabled="!companyId">
+          Календарь
+        </button>
         <button type="button" @click="handleLogout">Выйти</button>
       </div>
     </header>
 
     <div class="container">
-      <h2 class="page-title">Записи клиентов</h2>
+      <h2 class="page-title">Панель владельца</h2>
 
       <div v-if="needsCompany" class="create-company-card">
-        <h3>Создайте карточку компании</h3>
-        <p class="muted">
-          После регистрации владельца нужно заполнить данные компании — так вы появитесь в поиске.
-        </p>
-        <form class="company-form" @submit.prevent="createCompany">
-          <input v-model="createForm.name" type="text" placeholder="Название *" required />
-          <textarea
-            v-model="createForm.description"
-            rows="2"
-            placeholder="Описание"
-          ></textarea>
-          <input v-model="createForm.category" type="text" placeholder="Категория" />
-          <input v-model="createForm.city" type="text" placeholder="Город" />
-          <input v-model="createForm.address" type="text" placeholder="Адрес" />
-          <input v-model="createForm.phone" type="text" placeholder="Телефон" />
-          <button type="submit" class="primary" :disabled="creatingCompany">
-            {{ creatingCompany ? 'Создание...' : 'Создать компанию' }}
-          </button>
-        </form>
-        <div v-if="createError" class="error-message">{{ createError }}</div>
+        <template v-if="companyRequest">
+          <h3>Заявка отправлена</h3>
+          <p class="muted">
+            Статус:
+            <strong>{{ requestStatusText(companyRequest.status) }}</strong>
+          </p>
+          <div class="request-summary">
+            <div><strong>Название:</strong> {{ companyRequest.name }}</div>
+            <div><strong>Категория:</strong> {{ companyRequest.requested_category }}</div>
+            <div><strong>Город:</strong> {{ companyRequest.city }}</div>
+            <div><strong>Телефон:</strong> {{ companyRequest.phone }}</div>
+          </div>
+          <p class="muted" v-if="companyRequest.status === 'pending'">
+            Менеджер проверит заявку и создаст карточку компании после одобрения.
+          </p>
+          <button class="primary" type="button" @click="initCompanyData">Обновить статус</button>
+        </template>
+
+        <template v-else>
+          <h3>Подайте заявку на создание компании</h3>
+          <p class="muted">
+            После одобрения менеджером компания появится в системе, и вы сможете настроить услуги и
+            расписание.
+          </p>
+          <form class="company-form" @submit.prevent="createCompanyRequest">
+            <input v-model="createForm.name" type="text" placeholder="Название компании *" required />
+
+            <div class="category-field">
+              <input
+                v-model="createForm.category"
+                type="text"
+                placeholder="Категория *"
+                required
+                @input="onCategoryInput"
+                @focus="onCategoryFocus"
+                @blur="closeSuggestions"
+              />
+              <div v-if="categoryLoading" class="hint">Поиск категорий...</div>
+              <div v-else-if="categoryOptions.length > 0" class="suggestions">
+                <button
+                  v-for="option in categoryOptions"
+                  :key="option.id"
+                  type="button"
+                  class="suggestion-item"
+                  @mousedown.prevent="pickCategory(option.name)"
+                >
+                  {{ option.name }}
+                </button>
+              </div>
+            </div>
+
+            <div class="city-field">
+              <input
+                v-model="createForm.city"
+                type="text"
+                placeholder="Город *"
+                required
+                @input="onCityInput"
+                @focus="onCityFocus"
+                @blur="closeCitySuggestions"
+              />
+              <div v-if="cityLoading" class="hint">Поиск городов...</div>
+              <div v-else-if="cityOptions.length > 0" class="suggestions">
+                <button
+                  v-for="option in cityOptions"
+                  :key="option.name"
+                  type="button"
+                  class="suggestion-item"
+                  @mousedown.prevent="pickCity(option.name)"
+                >
+                  {{ option.name }}
+                </button>
+              </div>
+            </div>
+            <input
+              v-model="createForm.phone"
+              type="tel"
+              placeholder="Телефон компании *"
+              required
+            />
+            <button type="submit" class="primary" :disabled="creatingRequest">
+              {{ creatingRequest ? 'Отправка...' : 'Отправить заявку' }}
+            </button>
+          </form>
+          <div v-if="createError" class="error-message">{{ createError }}</div>
+        </template>
       </div>
 
       <template v-else>
+        <h2 class="section-title">Записи клиентов</h2>
         <div v-if="loading" class="loading">Загрузка...</div>
         <div v-else-if="error" class="error-message">{{ error }}</div>
         <div v-else-if="bookings.length === 0" class="empty-state">Пока нет записей</div>
 
         <div v-else class="bookings-list">
-          <div v-for="booking in bookings" :key="booking.id" class="booking-card">
+          <div v-for="booking in sortedBookings" :key="booking.id" class="booking-card">
             <div class="booking-header">
               <div>
-                <h3>Клиент #{{ booking.user_id }}</h3>
-                <div>Запись #{{ booking.id }} · Услуга #{{ booking.service_id }}</div>
+                <h3>Клиент: {{ booking.user_full_name || `#${booking.user_id}` }}</h3>
+                <div>Услуга: {{ serviceTitle(booking.service_id) }}</div>
               </div>
               <div :class="['status', statusClass(booking.status)]">
                 {{ statusText(booking.status) }}
@@ -94,12 +168,11 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { API_URL } from '@/config';
-import { formatApiError } from '@/utils/apiError';
 import { useAuth } from '@/composables/useAuth';
+import { formatApiError } from '@/utils/apiError';
 
 const router = useRouter();
 const auth = useAuth();
@@ -110,17 +183,63 @@ const processingId = ref(null);
 const bookings = ref([]);
 const companyId = ref(null);
 const needsCompany = ref(false);
+const serviceNames = ref({});
 
-const creatingCompany = ref(false);
+function statusPriority(status) {
+  const map = { pending: 0, confirmed: 1, cancelled: 2 };
+  return map[status] ?? 3;
+}
+
+function toMs(dateString) {
+  const t = new Date(dateString).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+const sortedBookings = computed(() => {
+  const now = Date.now();
+  return [...(bookings.value || [])].sort((a, b) => {
+    const ap = statusPriority(a.status);
+    const bp = statusPriority(b.status);
+    if (ap !== bp) return ap - bp;
+
+    const aUpcoming = toMs(a.start_at) >= now;
+    const bUpcoming = toMs(b.start_at) >= now;
+    if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+
+    // Для будущих: ближайшие первыми.
+    // Для прошедших: последние первыми.
+    if (aUpcoming) {
+      const aDate = toMs(a.start_at);
+      const bDate = toMs(b.start_at);
+      if (aDate !== bDate) return aDate - bDate;
+    } else {
+      const aDate = toMs(a.start_at);
+      const bDate = toMs(b.start_at);
+      if (aDate !== bDate) return bDate - aDate;
+    }
+
+    const aCreated = toMs(a.created_at);
+    const bCreated = toMs(b.created_at);
+    return bCreated - aCreated;
+  });
+});
+
+const creatingRequest = ref(false);
 const createError = ref('');
 const createForm = reactive({
   name: '',
-  description: '',
   category: '',
   city: '',
-  address: '',
   phone: '',
 });
+const companyRequest = ref(null);
+
+const categoryLoading = ref(false);
+const categoryOptions = ref([]);
+let categoryTimer = null;
+const cityLoading = ref(false);
+const cityOptions = ref([]);
+let cityTimer = null;
 
 onMounted(async () => {
   await initCompanyData();
@@ -130,6 +249,7 @@ async function initCompanyData() {
   loading.value = true;
   error.value = '';
   needsCompany.value = false;
+  companyRequest.value = null;
 
   try {
     if (!auth.isAuthenticated()) {
@@ -138,9 +258,8 @@ async function initCompanyData() {
     }
 
     await loadMyCompany();
-
     if (needsCompany.value) {
-      loading.value = false;
+      await loadMyCompanyRequest();
       return;
     }
 
@@ -155,11 +274,7 @@ async function initCompanyData() {
 }
 
 async function loadMyCompany() {
-  const token = localStorage.getItem('access_token');
-  const response = await fetch(`${API_URL}/owner/company`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
+  const response = await auth.authFetch('/owner/company');
   if (response.status === 404) {
     needsCompany.value = true;
     companyId.value = null;
@@ -167,7 +282,6 @@ async function loadMyCompany() {
   }
 
   const data = await response.json().catch(() => ({}));
-
   if (!response.ok) {
     throw new Error(formatApiError(data));
   }
@@ -176,49 +290,148 @@ async function loadMyCompany() {
   needsCompany.value = false;
 }
 
-async function createCompany() {
-  creatingCompany.value = true;
+async function loadMyCompanyRequest() {
+  const response = await auth.authFetch('/owner/company-request');
+  if (response.status === 404) {
+    companyRequest.value = null;
+    return;
+  }
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(formatApiError(data));
+  }
+  companyRequest.value = data;
+}
+
+async function createCompanyRequest() {
+  creatingRequest.value = true;
   createError.value = '';
 
   try {
-    const token = localStorage.getItem('access_token');
-    const body = {
-      name: createForm.name.trim(),
-      description: createForm.description.trim() || null,
-      category: createForm.category.trim() || null,
-      city: createForm.city.trim() || null,
-      address: createForm.address.trim() || null,
-      phone: createForm.phone.trim() || null,
-    };
-
-    const response = await fetch(`${API_URL}/owner/company`, {
+    const response = await auth.authFetch('/owner/company-request', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        name: createForm.name.trim(),
+        category: createForm.category.trim(),
+        city: createForm.city.trim(),
+        phone: createForm.phone.trim(),
+      }),
     });
-
     const data = await response.json().catch(() => ({}));
-
     if (!response.ok) {
       throw new Error(formatApiError(data));
     }
-
-    companyId.value = data.id;
-    needsCompany.value = false;
+    companyRequest.value = data;
     createForm.name = '';
-    createForm.description = '';
     createForm.category = '';
     createForm.city = '';
-    createForm.address = '';
     createForm.phone = '';
-    await loadBookings();
+    categoryOptions.value = [];
   } catch (err) {
-    createError.value = err.message;
+    createError.value = err.message || 'Не удалось отправить заявку';
   } finally {
-    creatingCompany.value = false;
+    creatingRequest.value = false;
+  }
+}
+
+function pickCategory(value) {
+  createForm.category = value;
+  categoryOptions.value = [];
+}
+
+function closeSuggestions() {
+  window.setTimeout(() => {
+    categoryOptions.value = [];
+  }, 100);
+}
+
+function pickCity(value) {
+  createForm.city = value;
+  cityOptions.value = [];
+}
+
+function closeCitySuggestions() {
+  window.setTimeout(() => {
+    cityOptions.value = [];
+  }, 100);
+}
+
+function onCategoryInput() {
+  if (categoryTimer) {
+    clearTimeout(categoryTimer);
+  }
+  categoryTimer = setTimeout(() => {
+    loadCategorySuggestions(createForm.category.trim());
+  }, 250);
+}
+
+async function onCategoryFocus() {
+  if (categoryOptions.value.length > 0) {
+    return;
+  }
+  await loadCategorySuggestions(createForm.category.trim());
+}
+
+async function loadCategorySuggestions(query = '') {
+  categoryLoading.value = true;
+  try {
+    const params = new URLSearchParams({ limit: '50' });
+    if (query) {
+      params.set('search', query);
+    }
+    const response = await auth.authFetch(
+      `/categories?${params.toString()}`,
+      {},
+      { redirectOn401: false },
+    );
+    if (!response.ok) {
+      categoryOptions.value = [];
+      return;
+    }
+    const data = await response.json().catch(() => []);
+    categoryOptions.value = Array.isArray(data) ? data : [];
+  } finally {
+    categoryLoading.value = false;
+  }
+}
+
+function onCityInput() {
+  if (cityTimer) {
+    clearTimeout(cityTimer);
+  }
+  cityTimer = setTimeout(() => {
+    loadCitySuggestions(createForm.city.trim());
+  }, 250);
+}
+
+async function onCityFocus() {
+  if (cityOptions.value.length > 0) {
+    return;
+  }
+  await loadCitySuggestions(createForm.city.trim());
+}
+
+async function loadCitySuggestions(query = '') {
+  cityLoading.value = true;
+  try {
+    const params = new URLSearchParams();
+    if (query) {
+      params.set('search', query);
+    }
+    const response = await auth.authFetch(
+      `/cities?${params.toString()}`,
+      {},
+      { redirectOn401: false },
+    );
+    if (!response.ok) {
+      cityOptions.value = [];
+      return;
+    }
+    const data = await response.json().catch(() => []);
+    cityOptions.value = Array.isArray(data) ? data : [];
+  } finally {
+    cityLoading.value = false;
   }
 }
 
@@ -232,17 +445,14 @@ async function loadBookings() {
   error.value = '';
 
   try {
-    const token = localStorage.getItem('access_token');
-    const response = await fetch(`${API_URL}/owner/company/${companyId.value}/bookings`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await auth.authFetch(`/owner/company/${companyId.value}/bookings`);
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
       throw new Error(formatApiError(data));
     }
-
     bookings.value = Array.isArray(data) ? data : [];
+    await loadCompanyServicesMeta();
   } catch (err) {
     error.value = err.message;
     bookings.value = [];
@@ -251,22 +461,42 @@ async function loadBookings() {
   }
 }
 
-async function confirmBooking(bookingId) {
-  processingId.value = bookingId;
+async function loadCompanyServicesMeta() {
+  if (!companyId.value) return;
 
   try {
-    const token = localStorage.getItem('access_token');
-    const response = await fetch(`${API_URL}/owner/bookings/${bookingId}/confirm`, {
+    // Загружаем названия услуг, чтобы в списке записей не показывать service_id.
+    const res = await auth.authFetch(`/companies/${companyId.value}/services`, {}, { redirectOn401: false });
+    if (!res.ok) return;
+    const services = await res.json().catch(() => []);
+    const map = {};
+    if (Array.isArray(services)) {
+      services.forEach((s) => {
+        if (s?.id !== undefined) map[s.id] = s?.name || null;
+      });
+    }
+    serviceNames.value = map;
+  } catch {
+    /* ignore */
+  }
+}
+
+function serviceTitle(serviceId) {
+  if (!serviceNames.value) return `#${serviceId}`;
+  return serviceNames.value[serviceId] || `#${serviceId}`;
+}
+
+async function confirmBooking(bookingId) {
+  processingId.value = bookingId;
+  try {
+    const response = await auth.authFetch(`/owner/bookings/${bookingId}/confirm`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
     });
     const data = await response.json().catch(() => ({}));
-
     if (!response.ok) {
       throw new Error(formatApiError(data));
     }
-
-    const booking = bookings.value.find((b) => b.id === bookingId);
+    const booking = bookings.value.find((item) => item.id === bookingId);
     if (booking) booking.status = 'confirmed';
   } catch (err) {
     error.value = err.message;
@@ -279,18 +509,27 @@ function handleLogout() {
   auth.logout();
 }
 
-function statusClass(status) {
-  const map = { pending: 'active', confirmed: 'completed', cancelled: 'cancelled' };
-  return map[status] || '';
+function requestStatusText(requestStatus) {
+  const map = {
+    pending: 'На модерации',
+    approved: 'Одобрена',
+    rejected: 'Отклонена',
+  };
+  return map[requestStatus] || requestStatus;
 }
 
-function statusText(status) {
+function statusClass(statusValue) {
+  const map = { pending: 'active', confirmed: 'completed', cancelled: 'cancelled' };
+  return map[statusValue] || '';
+}
+
+function statusText(statusValue) {
   const map = {
     pending: 'Ожидает подтверждения',
     confirmed: 'Подтверждена',
     cancelled: 'Отменена',
   };
-  return map[status] || status;
+  return map[statusValue] || statusValue;
 }
 
 function formatDate(dateString) {
@@ -343,11 +582,11 @@ header {
   background: white;
   color: #065f46;
   font-weight: 500;
-  transition: background 0.2s;
 }
 
-.nav button:hover {
-  background: #f3f4f6;
+.nav button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .container {
@@ -356,8 +595,9 @@ header {
   margin: 40px auto;
 }
 
-.page-title {
-  margin-bottom: 30px;
+.page-title,
+.section-title {
+  margin-bottom: 24px;
   color: #1f2937;
 }
 
@@ -368,14 +608,18 @@ header {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
 }
 
-.create-company-card h3 {
-  margin-bottom: 10px;
-  color: #111827;
-}
-
 .muted {
   color: #6b7280;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+}
+
+.request-summary {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
 .company-form {
@@ -384,16 +628,55 @@ header {
   gap: 12px;
 }
 
-.company-form input,
-.company-form textarea {
+.company-form input {
+  width: 100%;
+  box-sizing: border-box;
   padding: 12px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
   font-size: 14px;
-  font-family: inherit;
+}
+
+.category-field {
+  position: relative;
+}
+
+.city-field {
+  position: relative;
+}
+
+.hint {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.suggestions {
+  margin-top: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  background: white;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  padding: 9px 12px;
+  background: white;
+  cursor: pointer;
+}
+
+.suggestion-item:hover {
+  background: #f3f4f6;
 }
 
 .primary {
+  width: 100%;
+  box-sizing: border-box;
   padding: 12px;
   border-radius: 10px;
   border: none;
@@ -401,10 +684,6 @@ header {
   color: white;
   font-weight: 500;
   cursor: pointer;
-}
-
-.primary:hover:not(:disabled) {
-  background: #15803d;
 }
 
 .primary:disabled {
@@ -419,7 +698,6 @@ header {
   color: #6b7280;
   background: white;
   border-radius: 20px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
 }
 
 .error-message {
@@ -437,12 +715,6 @@ header {
   border-radius: 20px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
   margin-bottom: 20px;
-  transition: 0.3s;
-}
-
-.booking-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
 }
 
 .booking-header {
@@ -452,14 +724,13 @@ header {
   margin-bottom: 15px;
 }
 
-.booking-header h3 {
-  margin-bottom: 5px;
-  color: #111827;
-}
-
-.booking-header div:last-child {
-  color: #6b7280;
+.booking-info {
+  margin-top: 15px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
   font-size: 14px;
+  color: #6b7280;
 }
 
 .status {
@@ -484,23 +755,8 @@ header {
   color: #991b1b;
 }
 
-.booking-info {
-  margin-top: 15px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.booking-info strong {
-  color: #374151;
-}
-
 .booking-actions {
   margin-top: 20px;
-  display: flex;
-  gap: 10px;
 }
 
 .confirm-btn {
@@ -513,22 +769,13 @@ header {
   color: #15803d;
 }
 
-.confirm-btn:hover:not(:disabled) {
-  background: #bfdbfe;
-}
-
-.confirm-btn:disabled {
-  background: #d1d5db;
-  cursor: not-allowed;
-}
-
 @media (max-width: 768px) {
-  .booking-info {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   header {
     padding: 15px 20px;
+  }
+
+  .booking-info {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 </style>

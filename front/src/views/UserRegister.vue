@@ -7,6 +7,28 @@
       <form @submit.prevent="handleRegister">
         <div class="form-group">
           <input
+            v-model="form.firstName"
+            type="text"
+            placeholder="Имя"
+            required
+            :class="{ error: errors.firstName }"
+          />
+          <span v-if="errors.firstName" class="error-message">{{ errors.firstName }}</span>
+        </div>
+
+        <div class="form-group">
+          <input
+            v-model="form.lastName"
+            type="text"
+            placeholder="Фамилия"
+            required
+            :class="{ error: errors.lastName }"
+          />
+          <span v-if="errors.lastName" class="error-message">{{ errors.lastName }}</span>
+        </div>
+
+        <div class="form-group">
+          <input
             v-model="form.email"
             type="email"
             placeholder="Email"
@@ -77,19 +99,39 @@ const { register } = useAuth();
 const loading = ref(false);
 const serverError = ref('');
 const serverSuccess = ref(false);
-const errors = reactive({ email: '', password: '', confirmPassword: '' });
+const errors = reactive({
+  firstName: '',
+  lastName: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+});
 
 const form = reactive({
+  firstName: '',
+  lastName: '',
   email: '',
   password: '',
   confirmPassword: '',
 });
 
 function validateForm() {
+  errors.firstName = '';
+  errors.lastName = '';
   errors.email = '';
   errors.password = '';
   errors.confirmPassword = '';
   let isValid = true;
+
+  if (!form.firstName.trim()) {
+    errors.firstName = 'Введите имя';
+    isValid = false;
+  }
+
+  if (!form.lastName.trim()) {
+    errors.lastName = 'Введите фамилию';
+    isValid = false;
+  }
 
   if (!form.email) {
     errors.email = 'Введите email';
@@ -101,9 +143,6 @@ function validateForm() {
 
   if (!form.password) {
     errors.password = 'Введите пароль';
-    isValid = false;
-  } else if (form.password.length < 4) {
-    errors.password = 'Пароль должен быть не менее 4 символов';
     isValid = false;
   }
 
@@ -124,7 +163,10 @@ async function handleRegister() {
   loading.value = true;
 
   try {
-    await register(form.email, form.password, 'user');
+    await register(form.email, form.password, 'user', {
+      first_name: form.firstName.trim(),
+      last_name: form.lastName.trim(),
+    });
     serverSuccess.value = true;
     setTimeout(() => {
       router.push('/dashboard/user');
