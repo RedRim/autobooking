@@ -5,6 +5,7 @@ import CompanyCalendar from '@/views/CompanyCalendar.vue';
 import CompanyDashboard from '@/views/CompanyDashboard.vue';
 import CompanyDetails from '@/views/CompanyDetails.vue';
 import CompanyLogin from '@/views/CompanyLogin.vue';
+import CompanyProfile from '@/views/CompanyProfile.vue';
 import CompanyRegisterStep1 from '@/views/CompanyRegisterStep1.vue';
 import ManagerDashboard from '@/views/ManagerDashboard.vue';
 import CompanyServices from '@/views/CompanyServices.vue';
@@ -54,6 +55,12 @@ const routes = [
     name: 'ManagerDashboard',
     component: ManagerDashboard,
     meta: { requiresAuth: true, role: 'manager' },
+  },
+  {
+    path: '/company/profile',
+    name: 'CompanyProfile',
+    component: CompanyProfile,
+    meta: { requiresAuth: true, role: 'company' },
   },
   {
     path: '/company/bookings',

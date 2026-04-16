@@ -3,6 +3,9 @@
     <header>
       <div class="logo">AutoBooking</div>
       <div class="nav">
+        <button type="button" @click="router.push('/company/profile')" :disabled="!companyId">
+          Профиль
+        </button>
         <button type="button" @click="router.push('/company/services')" :disabled="!companyId">
           Услуги
         </button>
