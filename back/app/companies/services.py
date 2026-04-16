@@ -252,6 +252,7 @@ async def create_company_request(
         name=_clean_required(data.name, "name"),
         requested_category=_clean_required(data.category, "category"),
         city=_clean_required(data.city, "city"),
+        phone=data.phone,
     )
     session.add(request)
     await session.commit()
@@ -346,6 +347,8 @@ async def update_company_request(
         request.city = _clean_required(data.city, "city")
     if data.category is not None:
         request.requested_category = _clean_required(data.category, "category")
+    if data.phone is not None:
+        request.phone = data.phone
 
     await session.commit()
     await session.refresh(request)
@@ -370,6 +373,8 @@ async def approve_company_request(
         request.city = _clean_required(data.city, "city")
     if data.category is not None:
         request.requested_category = _clean_required(data.category, "category")
+    if data.phone is not None:
+        request.phone = data.phone
 
     category = await get_or_create_category(request.requested_category, session)
 
@@ -384,6 +389,7 @@ async def approve_company_request(
         owner_id=request.owner_id,
         name=request.name,
         city=request.city,
+        phone=request.phone,
         category_id=category.id,
         is_active=True,
     )

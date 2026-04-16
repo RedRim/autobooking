@@ -1,9 +1,28 @@
 from datetime import datetime, time
 from decimal import Decimal
+import re
+from typing import Annotated
 
 from pydantic import BaseModel
+from pydantic.functional_validators import BeforeValidator
+from pydantic_core import PydanticCustomError
 
 from app.companies.models import CompanyRequestStatus
+
+
+def _parse_ru_phone(value: str) -> str:
+    cleaned = re.sub(r"\D", "", str(value))
+    if cleaned.startswith("8"):
+        cleaned = "7" + cleaned[1:]
+    if len(cleaned) != 11 or not cleaned.startswith("7"):
+        raise PydanticCustomError(
+            "ru_phone",
+            "Неверный формат телефона. Верный формат: +7/8 и 10 цифр",
+        )
+    return f"+7{cleaned[1:]}"
+
+
+RuPhone = Annotated[str, BeforeValidator(_parse_ru_phone)]
 
 
 class WorkingHoursCreate(BaseModel):
@@ -138,6 +157,7 @@ class CompanyCreate(BaseModel):
     name: str
     category: str
     city: str
+    phone: RuPhone
 
 
 class CompanyUpdate(BaseModel):
@@ -218,6 +238,7 @@ class CityResponse(BaseModel):
 class CompanyRequestUpdate(BaseModel):
     city: str | None = None
     category: str | None = None
+    phone: RuPhone | None = None
 
 
 class CompanyRequestResponse(BaseModel):
@@ -226,6 +247,7 @@ class CompanyRequestResponse(BaseModel):
     name: str
     requested_category: str
     city: str
+    phone: str | None
     status: CompanyRequestStatus
     approved_by_id: int | None
     approved_at: datetime | None
