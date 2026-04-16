@@ -38,6 +38,13 @@
 
       <div class="section" v-else-if="upcomingBookings.length > 0">
         <h2>Ближайшие записи</h2>
+        <div class="sort-controls">
+          <label for="upcomingSort">Сортировка:</label>
+          <select id="upcomingSort" v-model="upcomingSortKey">
+            <option value="startAsc">Дата записи ↑</option>
+            <option value="startDesc">Дата записи ↓</option>
+          </select>
+        </div>
         <div
           v-for="booking in upcomingBookings"
           :key="booking.id"
@@ -85,6 +92,7 @@ const cancellingId = ref(null);
 const bookings = ref([]);
 const companyNames = ref({});
 const serviceNames = ref({});
+const upcomingSortKey = ref('startAsc');
 
 const search = reactive({
   query: '',
@@ -92,11 +100,37 @@ const search = reactive({
   city: '',
 });
 
-const upcomingBookings = computed(() =>
-  bookings.value
-    .filter((b) => b.status !== 'cancelled' && new Date(b.start_at) >= new Date())
-    .slice(0, 5),
-);
+function toMs(dateString) {
+  const t = new Date(dateString).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+const upcomingBookings = computed(() => {
+  const now = Date.now();
+  const list = bookings.value.filter((b) => b.status !== 'cancelled' && toMs(b.start_at) >= now);
+
+  switch (upcomingSortKey.value) {
+    case 'startDesc':
+      return list
+        .sort((a, b) => {
+          const as = toMs(a.start_at);
+          const bs = toMs(b.start_at);
+          if (as !== bs) return bs - as;
+          return toMs(b.created_at) - toMs(a.created_at);
+        })
+        .slice(0, 5);
+    case 'startAsc':
+    default:
+      return list
+        .sort((a, b) => {
+          const as = toMs(a.start_at);
+          const bs = toMs(b.start_at);
+          if (as !== bs) return as - bs;
+          return toMs(b.created_at) - toMs(a.created_at);
+        })
+        .slice(0, 5);
+  }
+});
 
 onMounted(async () => {
   try {
@@ -341,6 +375,27 @@ h1 {
 
 .muted {
   color: #6b7280;
+}
+
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.sort-controls label {
+  color: #374151;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.sort-controls select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+  background: white;
 }
 
 .booking-card {

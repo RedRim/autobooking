@@ -12,6 +12,43 @@
     <div class="container">
       <h2 class="page-title">Мои записи</h2>
 
+      <div class="controls-row">
+        <div class="sort-controls">
+          <label for="bookingSort">Сортировка:</label>
+          <select id="bookingSort" v-model="sortKey">
+            <option value="startAsc">Дата записи ↑</option>
+            <option value="startDesc">Дата записи ↓</option>
+          </select>
+        </div>
+
+        <div class="status-filters">
+          <button
+            type="button"
+            class="status-filters-title"
+            @click="statusFiltersOpen = !statusFiltersOpen"
+            :aria-expanded="statusFiltersOpen"
+          >
+            отображать статусы услуг:
+            <span class="chevron" :class="{ open: statusFiltersOpen }">▾</span>
+          </button>
+
+          <div class="status-filters-body" :class="{ open: statusFiltersOpen }">
+            <label class="checkbox-item">
+              <input type="checkbox" v-model="showPending" />
+              Ожидает подтверждения
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" v-model="showConfirmed" />
+              Подтверждена
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" v-model="showCancelled" />
+              Отменена
+            </label>
+          </div>
+        </div>
+      </div>
+
       <div v-if="loading" class="loading">Загрузка...</div>
       <div v-else-if="error" class="error-message">{{ error }}</div>
       <div v-else-if="bookings.length === 0" class="empty-state">
@@ -20,7 +57,7 @@
       </div>
 
       <div v-else class="bookings-list">
-        <div v-for="booking in bookings" :key="booking.id" class="booking-card">
+        <div v-for="booking in sortedBookings" :key="booking.id" class="booking-card">
           <div class="booking-header">
             <div>
               <h3>{{ companyTitle(booking.company_id) }}</h3>
@@ -75,7 +112,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { API_URL } from '@/config';
@@ -90,6 +127,46 @@ const error = ref('');
 const cancellingId = ref(null);
 const bookings = ref([]);
 const companyCache = ref({});
+
+const sortKey = ref('startAsc');
+const showPending = ref(true);
+const showConfirmed = ref(true);
+const showCancelled = ref(false);
+const statusFiltersOpen = ref(false);
+
+function toMs(dateString) {
+  const t = new Date(dateString).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+const sortedBookings = computed(() => {
+  const list = [...(bookings.value || [])].filter((b) => {
+    if (b.status === 'pending') return showPending.value;
+    if (b.status === 'confirmed') return showConfirmed.value;
+    if (b.status === 'cancelled') return showCancelled.value;
+    return false;
+  });
+
+  const cmp = (a, b) => {
+    // Требование: отмененные должны быть в конце списка.
+    const aCancelled = a.status === 'cancelled';
+    const bCancelled = b.status === 'cancelled';
+    if (aCancelled !== bCancelled) return aCancelled ? 1 : -1;
+
+    const as = toMs(a.start_at);
+    const bs = toMs(b.start_at);
+
+    if (as !== bs) {
+      if (sortKey.value === 'startDesc') return bs - as;
+      return as - bs;
+    }
+
+    // tie-breaker: новые записи выше
+    return toMs(b.created_at) - toMs(a.created_at);
+  };
+
+  return list.sort(cmp);
+});
 
 onMounted(async () => {
   await loadBookings();
@@ -278,6 +355,99 @@ header {
 .page-title {
   margin-bottom: 30px;
   color: #1f2937;
+}
+
+.controls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.sort-controls label {
+  color: #374151;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.sort-controls select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+  background: white;
+}
+
+.status-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: white;
+  min-width: 320px;
+}
+
+.status-filters-title {
+  color: #374151;
+  font-weight: 500;
+  font-size: 14px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+}
+
+.status-filters-body {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: max-height 0.25s ease, opacity 0.25s ease, transform 0.25s ease;
+}
+
+.status-filters-body.open {
+  max-height: 200px;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #374151;
+  font-size: 14px;
 }
 
 .loading,

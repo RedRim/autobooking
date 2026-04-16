@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import and_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
@@ -164,7 +165,15 @@ async def create_booking(data: BookingCreate, user: User, session: AsyncSession)
         notes=data.notes,
     )
     session.add(booking)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Защита на уровне БД от повторной вставки (двойной POST/гонка запросов).
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Выбранное время уже занято",
+        )
     await session.refresh(booking)
     return booking
 
