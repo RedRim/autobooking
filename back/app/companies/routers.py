@@ -86,10 +86,9 @@ async def get_company_services(
 @router.get("/categories", response_model=list[CategoryResponse])
 async def search_categories(
     search: str | None = Query(None, description="Поиск категории по префиксу"),
-    limit: int = Query(10, ge=1, le=30),
     session: AsyncSession = Depends(get_session),
 ) -> list[CategoryResponse]:
-    return await svc.list_categories(session, search, limit)
+    return await svc.list_categories(session, search)
 
 
 # ── Компании (для владельца) ─────────────────────────────────────────────────
